@@ -65,8 +65,8 @@ reproduce:  ## Reproduce every result of the default study from raw data (networ
 reproduce-fixtures:  ## Same full default design, but on fixtures (verifies `reproduce` offline)
 	$(RUN) tsfm-rc all configs/default_fixtures.yaml
 
-doctor:  ## Check environment, data cache and model availability; print plain-English fixes
-	$(RUN) tsfm-rc doctor
+doctor:  ## Check environment, data cache and model availability (ONLINE=1 also fetches weights)
+	$(RUN) tsfm-rc doctor $(if $(ONLINE),--online,)
 
 flashcards:  ## Export all lesson flashcards to an Anki-importable CSV
 	$(RUN) tsfm-rc flashcards

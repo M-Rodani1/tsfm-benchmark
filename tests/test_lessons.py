@@ -31,10 +31,24 @@ def _words(text: str) -> int:
     return len(re.findall(r"[A-Za-z0-9][A-Za-z0-9'’\-]*", text))
 
 
-def test_at_least_ten_lessons_eventually():
-    # Enforced strictly in Build 08; before that we only check numbering is sane.
+def test_at_least_ten_complete_lessons():
     nums = [int(d.name[:2]) for d in DIRS]
     assert nums == sorted(nums) and len(set(nums)) == len(nums)
+    assert len(DIRS) >= 10, "the definition of done requires at least 10 lessons"
+    assert nums == list(range(len(nums))), "lessons are numbered 00, 01, ... without gaps"
+
+
+def test_every_lesson_points_to_an_existing_next_lesson():
+    for d in DIRS[:-1]:
+        nb = nbformat.read(d / "lesson.ipynb", as_version=4)
+        m = re.search(r"lessons/(\d\d-[a-z0-9-]+)/lesson\.ipynb", nb.cells[-1].source)
+        assert m and (LESSONS / m.group(1) / "lesson.ipynb").exists(), f"{d.name}: bad Next link"
+
+
+def test_progress_file_lists_every_lesson():
+    text = (LESSONS / "PROGRESS.md").read_text(encoding="utf-8")
+    for d in DIRS:
+        assert f"| {d.name[:2]} " in text, f"PROGRESS.md lacks lesson {d.name[:2]}"
 
 
 @pytest.mark.parametrize("d", DIRS, ids=IDS)

@@ -259,13 +259,16 @@ def _mcs(T: dict, fig_links: dict, cfg: RunConfig) -> list[str]:
 def _prob(T: dict) -> list[str]:
     L = ["## 7. Probabilistic forecasts (h = 1)", "",
          "CRPS approximated from the nine deciles (DECISIONS D-012), normalised by the pre-test standard "
-         "deviation; reference: returns → `hist_mean`, rv → `har`, volume → `har`.", ""]
+         "deviation, and raw pinball losses at τ = 0.1, 0.5, 0.9 (target units); reference: returns → `hist_mean`, "
+         "rv → `har`, volume → `har`.", ""]
     P = T["probabilistic"]
     if P.empty:
         return L + ["*(no model produced quantiles)*", ""]
-    rows = [[r.period, r.target, r.model, f3(r.crps_n), fp(getattr(r, "p_value", np.nan)), fp(getattr(r, "p_holm", np.nan))]
+    rows = [[r.period, r.target, r.model, f3(r.crps_n), f3(getattr(r, "pinball_q10", np.nan)), f3(getattr(r, "pinball_q50", np.nan)),
+             f3(getattr(r, "pinball_q90", np.nan)), fp(getattr(r, "p_value", np.nan)), fp(getattr(r, "p_holm", np.nan))]
             for r in P.sort_values(["period", "target", "crps_n"]).itertuples(index=False)]
-    return L + [md_table(pd.DataFrame(rows, columns=["period", "target", "model", "mean CRPS (norm.)", "p vs ref", "Holm p"]))]
+    return L + [md_table(pd.DataFrame(rows, columns=["period", "target", "model", "mean CRPS (norm.)", "pinball τ=0.1", "pinball τ=0.5",
+                                                     "pinball τ=0.9", "p vs ref (CRPS)", "Holm p"]))]
 
 
 def _contamination(T: dict, fig_links: dict) -> list[str]:

@@ -85,6 +85,18 @@ def _cmd_dashboard(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_doctor(args: argparse.Namespace) -> int:
+    from tsfm_rc.pipeline.doctor import run_doctor
+
+    return run_doctor(online=args.online)
+
+
+def _cmd_flashcards(args: argparse.Namespace) -> int:
+    from tsfm_rc.pipeline.flashcards import main as flash_main
+
+    return flash_main()
+
+
 def _has_data(cfg) -> bool:
     from tsfm_rc.data.cache import RawCache
     from tsfm_rc.paths import resolve
@@ -142,6 +154,13 @@ def build_parser() -> argparse.ArgumentParser:
     d = sub.add_parser("dashboard", help="build reports/dashboard/index.html from all stored results")
     d.add_argument("config", nargs="?", help="ignored (the dashboard includes every run)")
     d.set_defaults(func=_cmd_dashboard)
+
+    dr = sub.add_parser("doctor", help="check environment, data cache and model availability")
+    dr.add_argument("--online", action="store_true", help="also try to download missing model weights")
+    dr.set_defaults(func=_cmd_doctor)
+
+    fc = sub.add_parser("flashcards", help="export all lesson flashcards to flashcards.csv (Anki)")
+    fc.set_defaults(func=_cmd_flashcards)
 
     e = sub.add_parser("evaluate", help="recompute statistics from stored forecasts")
     e.add_argument("config")

@@ -2,7 +2,7 @@
   "config_hash": "129e0c563136469451a20443fa13e7721a2153a6aaf61a63a5fd4fd382fb8f57",
   "data_hash": "7605425c082360805dc4ed160892ba080f93c94fe2d4fbe416d08f55d1892d4d",
   "git": {
-    "commit": "1fc055d06bbe1c54f28fa4b244e35cc6574d36c1",
+    "commit": "9cbe4fa57bb4349d51cc94cf079e2505a330afeb",
     "dirty": true,
     "branch": "claude/dreamy-albattani-nysd72"
   },
@@ -28,7 +28,7 @@
   },
   "python": "3.11.15",
   "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
-  "created_utc": "2026-09-27T21:33:59+00:00",
+  "created_utc": "2026-09-27T21:46:55+00:00",
   "argv": [
     "/home/user/tsfm-benchmark/.venv/bin/tsfm-rc",
     "all",

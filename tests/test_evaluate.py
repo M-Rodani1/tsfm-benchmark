@@ -139,3 +139,6 @@ def test_tables_consistent(e2e):
         assert g.loc[g["mean_loss"].idxmin(), "mcs_pvalue"] >= g["mcs_pvalue"].median()
     assert set(out["dm_all"]["period"]) == {"full", "common_clean"}
     assert not out["economic"].empty and "buy_and_hold" in set(out["economic"]["model"])
+    prob = out["probabilistic"]
+    assert {"pinball_q10", "pinball_q50", "pinball_q90", "crps_n"} <= set(prob.columns)
+    assert (prob["pinball_q50"] > 0).all()

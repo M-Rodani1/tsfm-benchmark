@@ -63,7 +63,10 @@ def git_info(root: Path = ROOT) -> dict[str, Any]:
             return None
 
     commit = _run("rev-parse", "HEAD")
-    status = _run("status", "--porcelain", "--untracked-files=no")
+    # "dirty" = tracked code/config/data differ from the commit. Generated outputs
+    # (results/, reports/) are excluded: a run rewrites them, so counting them would
+    # make every run look dirty and hide real code changes.
+    status = _run("status", "--porcelain", "--untracked-files=no", "--", ".", ":(exclude)results", ":(exclude)reports")
     return {
         "commit": commit or "unknown",
         "dirty": bool(status) if status is not None else None,

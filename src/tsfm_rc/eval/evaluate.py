@@ -39,6 +39,7 @@ from tsfm_rc.eval.metrics import (
     crps_from_quantiles,
     directional_hit,
     oos_r2,
+    pinball,
     qlike,
     squared_error,
 )
@@ -67,6 +68,10 @@ def add_losses(fc: pd.DataFrame, cfg: RunConfig, scales: pd.DataFrame) -> pd.Dat
         has_q = L[qc].notna().all(axis=1) & (L["horizon"] == 1)
         if has_q.any():
             L.loc[has_q, "crps"] = crps_from_quantiles(L.loc[has_q, "y_true"].to_numpy(), L.loc[has_q, qc].to_numpy(), levels)
+            for tau in (0.1, 0.5, 0.9):  # pinball losses reported on their own (PREREGISTRATION s.6)
+                if tau in levels:
+                    L[f"pinball_{qcol(tau)}"] = np.nan
+                    L.loc[has_q, f"pinball_{qcol(tau)}"] = pinball(L.loc[has_q, "y_true"].to_numpy(), L.loc[has_q, qcol(tau)].to_numpy(), tau)
     if len(scales):
         sc = scales.pivot_table(index=["ticker", "target", "horizon"], columns="loss", values="scale").reset_index()
         sc.columns = [c if c in ("ticker", "target", "horizon") else f"scale_{c}" for c in sc.columns]
@@ -284,8 +289,10 @@ def probabilistic_table(L: pd.DataFrame, cfg: RunConfig, periods: list[str]) -> 
             ref = PROB_REFERENCE[kind]
             S = P[P["target"] == kind]
             for m in sorted(S["model"].unique()):
+                Sm = S[S["model"] == m]
                 row = {"period": period, "target": kind, "horizon": 1, "model": m, "reference": ref,
-                       "crps_n": S.loc[S["model"] == m, "crps_n"].mean(), "crps": S.loc[S["model"] == m, "crps"].mean()}
+                       "crps_n": Sm["crps_n"].mean(), "crps": Sm["crps"].mean(),
+                       **{c: Sm[c].mean() for c in Sm.columns if c.startswith("pinball_")}}
                 if m != ref and ref in set(S["model"]):
                     pp = paired_pooled(S, m, ref, "crps_n")
                     if len(pp) >= 3:
