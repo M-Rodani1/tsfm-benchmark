@@ -11,9 +11,12 @@
 | seasonal_naive  | volume           | last value on the same weekday                               |
 | lgbm            | all              | direct LightGBM per horizon on causal features               |
 
-"Proxy-aligned" (DECISIONS.md D-007): return-based variance forecasts are multiplied by
-``c = mean(GK) / mean(r^2)`` over the training window, because the target is open-to-close
-GK variance while GARCH/EWMA model close-to-close returns.
+"Proxy-aligned" (DECISIONS.md D-007, PREREGISTRATION.md amendment A3): return-based variance
+forecasts are multiplied by ``c = mean_t(GK_t / s2_t)``, where ``s2_t`` is the model's own
+in-sample one-step-ahead variance for day t over the training window. This is the
+QLIKE-optimal constant rescaling of the model's forecasts; it is needed because the target
+is open-to-close GK variance while GARCH/EWMA model close-to-close returns. (The original
+``mean(GK)/mean(r^2)`` was replaced because a single jump day dominates it.)
 """
 
 from __future__ import annotations
@@ -51,14 +54,19 @@ def _levels_tuple(levels: Sequence[float] | None) -> tuple[float, ...]:
     return tuple(float(q) for q in levels) if levels else ()
 
 
-def proxy_alignment(history: pd.DataFrame) -> float:
-    """c = mean(GK) / mean(r^2) over days where both exist (training window only)."""
-    ok = history["gk"].notna() & history["r"].notna()
-    num = history.loc[ok, "gk"].mean()
-    den = (history.loc[ok, "r"] ** 2).mean()
-    if not np.isfinite(num) or not np.isfinite(den) or den <= 0:
+def proxy_alignment(gk: np.ndarray, fitted_var: np.ndarray, burn: int = 22) -> float:
+    """QLIKE-optimal scale c = mean(GK_t / s2_t) over the training window (amendment A3).
+
+    ``fitted_var[t]`` must be the model's variance forecast for day t made at t-1 (in-sample,
+    one step ahead). The first ``burn`` days (filter warm-up) are skipped. Minimising
+    sum_t QLIKE(GK_t, c s2_t) over c gives exactly this mean.
+    """
+    gk = np.asarray(gk, float)[burn:]
+    fv = np.asarray(fitted_var, float)[burn:]
+    ok = np.isfinite(gk) & np.isfinite(fv) & (fv > 0) & (gk > 0)
+    if ok.sum() < 20:
         return 1.0
-    return float(num / den)
+    return float(np.mean(gk[ok] / fv[ok]))
 
 
 # ============================================================== returns
@@ -160,12 +168,25 @@ class ARBIC(Forecaster):
 # ============================================================== volatility
 
 
-def ewma_next_variance(r: np.ndarray, lam: float) -> float:
-    """sigma2_{t+1} = lam sigma2_t + (1 - lam) r_t^2, initialised at mean(r^2) of the first 22 obs."""
-    r = r[np.isfinite(r)]
+def ewma_filter(r: np.ndarray, lam: float) -> np.ndarray:
+    """One-step EWMA variances: out[t] = forecast for day t made at t-1; out[n] = next day.
+
+    sigma2_{t+1} = lam sigma2_t + (1 - lam) r_t^2, initialised at mean(r^2) of the first 22 obs.
+    """
     s0 = float(np.mean(r[:22] ** 2))
     y, _ = lfilter([1.0 - lam], [1.0, -lam], r**2, zi=[lam * s0])
-    return float(y[-1])
+    return np.concatenate([[s0], y])
+
+
+def ewma_next_variance(r: np.ndarray, lam: float) -> float:
+    r = r[np.isfinite(r)]
+    return float(ewma_filter(r, lam)[-1])
+
+
+def _gk_and_r(history: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Aligned arrays of GK and returns on days where the return exists."""
+    ok = history["r"].notna()
+    return history.loc[ok, "gk"].to_numpy(float), history.loc[ok, "r"].to_numpy(float)
 
 
 class EWMA(Forecaster):
@@ -180,9 +201,10 @@ class EWMA(Forecaster):
         self.fitted = True
 
     def predict(self, history, horizons, quantile_levels=None):
-        c = proxy_alignment(history)
-        s2 = ewma_next_variance(history["r"].to_numpy(), self.lam)
-        return Forecast(PointForecast({h: c * s2 for h in horizons}), meta={"c": c})
+        gk, r = _gk_and_r(history)
+        path = ewma_filter(r, self.lam)  # path[t] = one-step variance for day t; path[-1] = next day
+        c = proxy_alignment(gk, path[:-1])
+        return Forecast(PointForecast({h: c * float(path[-1]) for h in horizons}), meta={"c": c})
 
 
 class GARCH(Forecaster):
@@ -220,16 +242,18 @@ class GARCH(Forecaster):
         self.fitted = True
 
     def predict(self, history, horizons, quantile_levels=None):
-        c = proxy_alignment(history)
-        r = history["r"].dropna().to_numpy()
+        gk, r = _gk_and_r(history)
         H = max(horizons)
         if self.params is None:  # never converged: fall back to EWMA, flagged
-            s2 = ewma_next_variance(r, self.lam_fallback)
-            return Forecast(PointForecast({h: c * s2 for h in horizons}), meta={"fallback": "ewma", "c": c})
+            ew = ewma_filter(r, self.lam_fallback)
+            c = proxy_alignment(gk, ew[:-1])
+            return Forecast(PointForecast({h: c * float(ew[-1]) for h in horizons}), meta={"fallback": "ewma", "c": c})
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             fixed = self._model(r).fix(self.params)
+            in_sample = np.asarray(fixed.conditional_volatility, float) ** 2  # s2_t given t-1
             path = fixed.forecast(horizon=H, reindex=False).variance.to_numpy()[-1]
+        c = proxy_alignment(gk, in_sample)
         return Forecast(PointForecast({h: c * float(np.mean(path[:h])) for h in horizons}), meta={"c": c})
 
 

@@ -139,14 +139,33 @@ def test_ewma_matches_manual_recursion():
     assert ewma_next_variance(r, 0.94) == pytest.approx(s, rel=1e-12)
 
 
-def test_ewma_applies_training_window_proxy_alignment():
+def test_ewma_applies_qlike_optimal_proxy_alignment():
+    """c = mean(GK_t / s2_t) with s2_t the in-sample one-step EWMA variance (amendment A3)."""
     idx = pd.bdate_range("2020-01-01", periods=100)
     r = pd.Series(np.random.default_rng(3).standard_normal(100), index=idx)
     h = pd.DataFrame({"r": r, "gk": 0.5 * r**2 + 0.1})
     m = EWMA("rv")
     m.fit(h)
-    c = h["gk"].mean() / (h["r"] ** 2).mean()
-    assert m.predict(h, [1]).point[1] == pytest.approx(c * ewma_next_variance(r.to_numpy(), 0.94))
+    s = np.mean(r.to_numpy()[:22] ** 2)
+    fitted = []
+    for x in r.to_numpy():
+        fitted.append(s)  # forecast for this day, made the day before
+        s = 0.94 * s + 0.06 * x**2
+    c = np.mean((h["gk"].to_numpy() / np.array(fitted))[22:])
+    assert m.predict(h, [1]).point[1] == pytest.approx(c * s)
+
+
+def test_proxy_alignment_robust_to_a_jump_day():
+    """One day with a huge close-to-close move but a small range must not distort c."""
+    from tsfm_rc.models.baselines import proxy_alignment
+
+    rng = np.random.default_rng(4)
+    s2 = np.full(2000, 1.0)
+    gk = 0.9 * s2 * rng.gamma(4, 0.25, 2000)  # E[GK] = 0.9 s2
+    r2 = s2 * rng.standard_normal(2000) ** 2
+    r2[1000] = 2500.0  # overnight gap: enormous r^2, ordinary GK
+    assert proxy_alignment(gk, s2) == pytest.approx(0.9, rel=0.05)
+    assert gk.mean() / r2.mean() < 0.5  # the replaced estimator collapses
 
 
 def test_hist_mean_and_quantiles():
@@ -216,9 +235,7 @@ def test_garch_expected_variance_consistency_with_arch():
     m.fit(daily)
     mu, omega, alpha, beta, nu = m.params
     fc = m.predict(daily, [1, 20])
-    from tsfm_rc.models.baselines import proxy_alignment
-
-    c = proxy_alignment(daily)
+    c = fc.meta["c"]
     s1 = fc.point[1] / c
     est = GarchSpec(omega, alpha, beta)
     path = garch_expected_variance(est, np.array(s1), 20)

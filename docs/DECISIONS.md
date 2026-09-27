@@ -251,3 +251,15 @@ TSFMs have no training window, so the same forecast is used in both the expandin
 rolling comparison. For Moirai's sampling, the random seed is derived from the run seed and
 the batch number; with a cold cache and a fixed batch size the results are reproducible, and
 the cache guarantees identical values on reruns.
+
+### D-033 — DM variance rule amended after a size simulation (Build 05)
+See PREREGISTRATION.md amendment A2 for the Monte Carlo table. The lesson for the audit:
+the original rule looked standard but was wrong for the one horizon with overlap. The
+test that found it is kept in the suite, asserting both that the amended rule has
+approximately correct size and that the original one does not.
+
+### D-034 — Proxy alignment revised (Build 05, amendment A3)
+D-007's `mean(GK)/mean(r²)` was replaced by the QLIKE-optimal `mean(GK_t / s²_t)` using each
+model's in-sample one-step variances, after the smoke evaluation showed a single jump day
+(r² ≫ GK) can halve the constant. `tests/test_baselines_recovery.py::test_proxy_alignment_robust_to_a_jump_day`
+demonstrates both behaviours.

@@ -244,3 +244,50 @@ only. This is strictly more conservative than the original rule.
 **Results seen at the time?** No TSFM forecast had been produced on any data (the weights
 could not be downloaded in the build environment). Baseline forecasts existed only for the
 synthetic smoke fixtures; no real-market result of any kind existed.
+
+### A2 — 2026-09-27 (Build 05): HAC kernel for overlapping targets
+**Change.** Section 7's variance rule becomes: if targets overlap (q_h > 0, i.e. h = 20 with
+stride 5) use the **rectangular** kernel with lag q_h (the original Diebold–Mariano 1995 /
+Harvey–Leybourne–Newbold 1997 estimator); otherwise (q_h = 0, h = 1 and 5) keep the
+pre-registered Bartlett kernel with the Newey–West lag ⌊4(T/100)^{2/9}⌋. A non-positive
+rectangular estimate falls back to Bartlett with the same lag (flagged). HLN factor and
+t_{T−1} reference distribution unchanged.
+**Why.** While writing the unit tests, a Monte Carlo of the study's own design under the
+null (daily AR(1) loss contributions, φ ∈ {0, 0.3}, summed over 20-day windows sampled every
+5 days; 1,500 replications each) showed the original rule over-rejecting:
+
+| T (origins) | φ | original: Bartlett, L = max(q_h, NW) | amended: rectangular, L = q_h |
+|---|---|---|---|
+| 50 | 0.0 | 0.123 | 0.083 |
+| 50 | 0.3 | 0.119 | 0.067 |
+| 150 | 0.0 | 0.089 | 0.051 |
+| 150 | 0.3 | 0.099 | 0.057 |
+| 590 | 0.0 | 0.089 | 0.056 |
+| 590 | 0.3 | 0.096 | 0.061 |
+
+(nominal size 0.05). Bartlett weights down-weight the structurally present overlap
+autocovariances. A flat-top kernel was also tried (0.105 at T = 50, 0.06–0.068 for T ≥ 150)
+and was not better. `tests/test_stats.py::test_dm_size_under_overlap_amended_rule` re-runs
+this check. For h = 1 and 5 the original rule had the best small-sample size of the options
+tried and is kept.
+**Known residual problem.** With T ≈ 50 (TimesFM 2.5's clean window) every rule tried
+over-rejects (≈ 7–13% at nominal 5% under persistence), so results with T < 100 are flagged
+"small sample" in the report.
+**Results seen at the time?** None on real data; no TSFM results; smoke-fixture baseline
+forecasts existed but no DM test had been run on them.
+
+### A3 — 2026-09-27 (Build 05): proxy-alignment constant for return-based volatility models
+**Change.** Section 5.1's alignment constant for `ewma`, `garch` and `gjr_garch` changes from
+`c = mean(σ²_GK) / mean(r²)` to `c = mean_t(σ²_GK,t / s²_t)`, where `s²_t` is the model's own
+in-sample one-step-ahead variance for day t over the training window (first 22 days skipped).
+Still training data only; still one constant per model and origin.
+**Why.** Running the evaluation code on the synthetic smoke fixtures showed that one day
+with a large close-to-close move but a comparatively small intraday range (a one-directional
+crash; in real data, an overnight earnings or news gap) dominates `mean(r²)`: on the fixture
+`SYN_QUIRKS` it halved c (0.53 instead of ≈ 0.9) for the whole remaining sample and made every
+GARCH/EWMA forecast for that asset biased low. The new constant is the QLIKE-optimal
+rescaling of the model's own forecasts (minimising Σ QLIKE(GK_t, c·s²_t) over c gives
+exactly this mean) and is unaffected by the size of r²_t on jump days. This makes the
+baselines *stronger*, in line with "baselines must be strong, not strawmen".
+**Results seen at the time?** Only baseline results on synthetic fixtures (the ones that
+revealed the problem). No real-market data and no TSFM forecasts existed.
