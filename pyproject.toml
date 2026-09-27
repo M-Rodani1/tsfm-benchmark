@@ -1,0 +1,87 @@
+[project]
+name = "tsfm-reality-check"
+version = "0.1.0"
+description = "Honest, reproducible benchmark of time-series foundation models vs classical baselines on financial forecasting, with a learning layer."
+readme = "README.md"
+requires-python = "==3.11.*"
+license = { text = "MIT" }
+authors = [{ name = "TSFM Reality Check contributors" }]
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "statsmodels",
+    "arch",
+    "lightgbm",
+    "pydantic>=2",
+    "pyyaml",
+    "pyarrow",
+    "matplotlib",
+    "yfinance",
+]
+
+[project.optional-dependencies]
+# Time-series foundation models. Heavy (PyTorch). Not needed for tests/CI.
+# Weights are downloaded from Hugging Face at first use (network required).
+tsfm = [
+    "chronos-forecasting",
+    "timesfm[torch]",
+    "uni2ts",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-timeout",
+    "ruff",
+    "nbformat",
+    "nbclient",
+    "ipykernel",
+    "dieboldmariano",
+]
+learn = [
+    "jupyterlab",
+    "ipykernel",
+]
+
+[project.scripts]
+tsfm-rc = "tsfm_rc.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tsfm_rc"]
+
+[tool.uv]
+default-groups = ["dev"]
+# uni2ts 2.0.0 declares datasets~=2.17.1 which breaks on huggingface-hub>=1.0
+# (see docs/DECISIONS.md, D-004). Constrain hub for the whole lock.
+constraint-dependencies = ["huggingface-hub<1.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: long-running test (deselect with -m 'not slow')",
+    "tsfm: requires the optional TSFM packages to be installed",
+    "notebooks: executes lesson notebooks",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pkg_resources.*",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# Lessons are teaching notebooks: `;` suppresses plot output, solution.py files are
+# cell snippets that run inside the notebook namespace (so names like `np` exist).
+"lessons/**" = ["E402", "F401", "F841", "E702", "E703", "I001", "F821", "B018"]

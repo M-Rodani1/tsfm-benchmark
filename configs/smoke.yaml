@@ -1,0 +1,69 @@
+# Smoke configuration: committed synthetic fixtures only, runs end-to-end on CPU in minutes.
+# NO real market data. Numbers produced by this config say nothing about real markets;
+# they only prove that the pipeline runs and is internally consistent.
+name: smoke
+description: >
+  Pipeline check on committed synthetic OHLCV fixtures (data/fixtures). Same design as the
+  default study but short test period, larger stride and fewer bootstrap replications.
+seed: 20260927
+n_jobs: 1
+
+data:
+  provider: fixture
+  fixture_file: data/fixtures/synthetic_ohlcv.csv
+  tickers: [SYN_GARCH_A, SYN_GARCH_B, SYN_HAR_A, SYN_QUIRKS]
+  start: 2010-01-04
+  end: 2026-06-30
+
+targets:
+  kinds: [returns, rv, volume]
+  horizons: [1, 5, 20]
+  rv_estimator: garman_klass
+
+evaluation:
+  test_start: 2023-01-03
+  stride: 10
+  min_train_obs: 750
+  windows: [expanding, rolling]
+  rolling_length: 750
+  primary_window: expanding
+
+models:
+  context_length: 512
+  refit_every: {garch: 8, gjr_garch: 8, lgbm: 40}
+  lgbm: {n_estimators: 50}
+  tsfms:
+    - name: chronos_bolt_tiny
+      family: chronos
+      hf_id: amazon/chronos-bolt-tiny
+      release_date: 2024-11-26
+    - name: timesfm_2p5_200m
+      family: timesfm
+      hf_id: google/timesfm-2.5-200m-pytorch
+      release_date: 2025-09-15
+    - name: moirai_1p1_small
+      family: moirai
+      hf_id: Salesforce/moirai-1.1-R-small
+      release_date: 2024-06-30
+      num_samples: 100
+
+stats:
+  alpha: 0.05
+  mcs_alpha: 0.10
+  n_bootstrap: 200
+
+contamination:
+  enabled: true
+  buffer_days: 30
+
+economic:
+  enabled: true
+  asset: SYN_GARCH_A
+  horizon: 5
+
+synthetic:
+  enabled: true
+  n_series: 3
+  n_days: 1500
+  test_days: 300
+  intraday_steps: 78

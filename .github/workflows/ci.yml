@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.17"
+          enable-cache: true
+
+      - name: Install Python 3.11
+        run: uv python install 3.11
+
+      - name: Install locked dependencies (core + dev, no PyTorch)
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check src tests lessons
+
+      - name: Validate configs
+        run: uv run tsfm-rc validate configs/*.yaml
+
+      - name: Test suite
+        run: uv run pytest
+
+      - name: Smoke pipeline on committed fixtures
+        run: make smoke
+
+      - name: Upload smoke outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-outputs
+          path: |
+            results/smoke/
+            reports/
+          if-no-files-found: ignore

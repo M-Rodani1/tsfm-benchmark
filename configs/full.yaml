@@ -1,0 +1,52 @@
+# FULL configuration: larger checkpoints and a denser origin grid.
+# Documented but NOT run as part of the pre-registered study (hours on CPU; a GPU helps).
+# Results from this config are exploratory/robustness only (see PREREGISTRATION.md, section 10).
+name: full
+description: >
+  Robustness extension: larger TSFM variants, newer checkpoints, stride 1, longer context.
+  Exploratory; not part of the primary hypothesis family.
+seed: 20260927
+n_jobs: 8
+
+data:
+  provider: yfinance
+  tickers: [SPY, QQQ, IWM, TLT, GLD,
+            AAPL, MSFT, JNJ, PFE, UNH, JPM, BAC, PG, KO, WMT,
+            HD, MCD, AMZN, XOM, CVX, CAT, UNP, VZ, DIS, NEE, SHW]
+  start: 2000-01-03
+  end: 2026-09-25
+
+targets:
+  kinds: [returns, rv, volume]
+  horizons: [1, 5, 20]
+
+evaluation:
+  test_start: 2015-01-02
+  stride: 1
+  min_train_obs: 1000
+  windows: [expanding, rolling]
+  rolling_length: 1000
+
+models:
+  context_length: 2048
+  refit_every: {garch: 20, gjr_garch: 20, lgbm: 250}
+  tsfms:
+    - {name: chronos_bolt_tiny,  family: chronos, hf_id: amazon/chronos-bolt-tiny,  release_date: 2024-11-26}
+    - {name: chronos_bolt_base,  family: chronos, hf_id: amazon/chronos-bolt-base,  release_date: 2024-11-26}
+    - {name: chronos_2,          family: chronos, hf_id: amazon/chronos-2,          release_date: 2025-10-20}
+    - {name: timesfm_2p5_200m,   family: timesfm, hf_id: google/timesfm-2.5-200m-pytorch, release_date: 2025-09-15}
+    - {name: moirai_1p1_small,   family: moirai,  hf_id: Salesforce/moirai-1.1-R-small, release_date: 2024-06-30}
+    - {name: moirai_1p1_base,    family: moirai,  hf_id: Salesforce/moirai-1.1-R-base,  release_date: 2024-06-30}
+    - {name: moirai_2p0_small,   family: moirai,  hf_id: Salesforce/moirai-2.0-R-small, release_date: 2025-08-31}
+
+stats:
+  n_bootstrap: 2000
+
+economic:
+  asset: SPY
+  horizon: 5
+
+synthetic:
+  n_series: 50
+  n_days: 4000
+  test_days: 1500

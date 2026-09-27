@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Downloaded / regenerable artefacts
+data/raw/*
+!data/raw/README.md
+cache/
+results/*
+!results/README.md
+!results/smoke/
+!results/default_fixtures/
+results/*/tmp/
+*.log
+
+# Lesson scratch outputs
+lessons/**/scratch/
+flashcards.csv
+
+# OS
+.DS_Store

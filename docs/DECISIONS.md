@@ -1,0 +1,157 @@
+# Decision log
+
+Each entry records a judgment call the spec left open, the choice made, and why.
+Entries are append-only; a reversed decision gets a new entry that references the old one.
+Design decisions that affect results are also fixed in `PREREGISTRATION.md`.
+
+---
+
+### D-001 — One locked Python 3.11 environment, pinned to what `uni2ts` allows (Build 01)
+`uni2ts 2.0.0` (Moirai) requires `numpy~=1.26.0`, `scipy~=1.11.3`, `torch<2.5` and
+`gluonts~=0.14.3` (which needs `pandas<2.2`). Chronos (`chronos-forecasting 2.3.2`) and
+TimesFM (`timesfm 3.0.2`) accept those versions. Rather than maintaining separate
+environments per model (which would make "one command reproduces everything" fragile for
+a beginner), the whole project is resolved into **one** `uv.lock` in which all packages,
+including the core numerics, use the versions Moirai tolerates (numpy 1.26.4, pandas
+2.1.4, scipy 1.11.4, torch 2.4.1). The TSFM packages are an optional extra (`tsfm`) so CI
+and tests run without PyTorch, but the core versions are identical with or without the
+extra. `requires-python = "==3.11.*"` because 3.11 is the newest version all three TSFM
+packages and their pins support together.
+
+### D-002 — Network access in the build environment (Build 01)
+In the environment where this repository was built, the egress policy blocked
+`huggingface.co` (model weights), `query1.finance.yahoo.com`, `stooq.com`, Tiingo,
+Alpha Vantage and `arxiv.org`. PyPI and GitHub were reachable. Consequences, applied
+consistently: (1) no market data or model outputs were fabricated; (2) the pipeline is
+built and tested on committed synthetic fixtures with known parameters; (3) all three TSFMs
+are reported `UNAVAILABLE` for runs made here; (4) the exact local commands are in
+`README.md` and `docs/BUILD-REPORT.md`. The TSFM *packages* were installed from PyPI,
+so the wrappers are tested against the real library APIs (with randomly initialised
+weights in tests only; see D-021 once written).
+
+### D-003 — Universe and survivorship bias (Build 01, pre-registered)
+Five liquid ETFs spanning US large/tech/small caps, long Treasuries and gold, plus 21 US
+large caps chosen as roughly two per GICS sector among companies listed before 2000 with
+long, continuous Yahoo histories and no recent spin-offs that would complicate the
+adjusted price series (e.g. GE, MMM and HON were avoided for this reason; LIN for its
+2018 merger/ticker change). Real Estate is not represented (no large REIT with a clean
+pre-2000 history was obvious without data access). The list was fixed *before* looking
+at any data, which avoids choosing assets on which some model happens to do well, but it
+is **not** survivorship-free: it conditions on firms that are large in 2026. For
+forecast *comparisons* the bias is second-order (all models see the same assets), but
+survivors may have smoother dynamics than delisted firms, so results may not transfer to
+the full cross-section. A point-in-time constituent list (e.g. CRSP) would remove the
+bias; it is not freely available.
+
+### D-004 — `huggingface-hub<1.0` constraint (Build 01)
+`uni2ts 2.0.0` pins `datasets~=2.17.1`, a release that predates `huggingface-hub` 1.0.
+Allowing hub 1.x would pair them untested. The constraint is precautionary: I did not
+verify that hub 1.x actually breaks `uni2ts`. It forces `transformers 4.57.6` (instead
+of 5.x), which Chronos supports.
+
+### D-005 — Which checkpoint of each TSFM (Build 01, pre-registered)
+Spec: smallest official variant by default.
+- **Chronos:** `amazon/chronos-bolt-tiny` (9M), smallest Chronos-Bolt. Chronos-2 (Oct
+  2025) exists but the spec names Chronos/Chronos-Bolt; Chronos-2 is in `full.yaml`.
+- **TimesFM:** `google/timesfm-2.5-200m-pytorch`. The 1.0 checkpoint is also 200M but
+  needs the archived `timesfm==1.3.0` package (incompatible API and dependencies). TimesFM
+  3.0 (Aug 2026, ~330M) is larger and its weights are under a non-commercial licence.
+- **Moirai:** `Salesforce/moirai-1.1-R-small` rather than `moirai-2.0-R-small`. Both are
+  "small"; 1.1 was trained on LOTSA, a public corpus that can be inspected for financial
+  series, whereas 2.0's corpus includes "internal Salesforce operational data" that
+  cannot be audited, which would weaken the contamination analysis. 2.0 is in `full.yaml`.
+
+### D-006 — Garman–Klass rather than Parkinson (Build 01, pre-registered)
+Both use daily OHLC. Parkinson (1980) uses only the high–low range; Garman–Klass (1980)
+also uses open and close and is more efficient under driftless Brownian motion (relative
+efficiency ≈ 7.4 vs ≈ 5.2 against close-to-close squared returns). Both ignore the
+overnight gap and both are biased by discrete trading, so the extra efficiency is the
+deciding factor. GK is non-negative for valid OHLC because `0.5 − (2 ln 2 − 1) > 0` and
+`|ln(C/O)| ≤ ln(H/L)`; it is zero only if H = L, which we treat as missing.
+
+### D-007 — Aligning return-based volatility forecasts with the GK target (Build 01)
+EWMA and GARCH forecast the variance of close-to-close returns, which includes the
+overnight gap; the GK target does not. Without adjustment these baselines would be biased
+upward and look artificially bad under QLIKE and MSE, which would violate "baselines must
+be strong". Each such forecast is multiplied by `c = mean(σ²_GK)/mean(r²)` over the
+training window (past data only). This is a one-parameter, leakage-free calibration.
+
+### D-008 — Volatility target is the mean daily variance over h (Build 01)
+Using the mean rather than the sum keeps units comparable across horizons (%² per day).
+Variance rather than volatility (its square root) because QLIKE and MSE are robust to a
+noisy but conditionally unbiased variance proxy (Patton 2011); that robustness does not
+hold for volatility.
+
+### D-009 — TSFM volatility input in logs with a lognormal mean correction (Build 01)
+Daily GK variance is extremely right-skewed. TSFMs predict medians, but QLIKE/MSE are
+minimised by the conditional *mean*. Feeding raw variance and taking the median would bias
+TSFM forecasts downward for a known, fixable reason (making them look worse than they
+are). Feeding the log and converting each step with `exp(m + s²/2)` uses only the model's
+own quantiles and the well-documented near-normality of log realised variance. The same
+rule applies to every TSFM. A "level input" variant is a possible extension, not run.
+
+### D-010 — Context length 512 for every TSFM (Build 01)
+512 trading days ≈ 2 years covers several volatility regimes, is within every model's
+supported context, and keeps CPU cost low. Using each model's maximum instead would
+confound "model" with "information set". 2048 is in `full.yaml`.
+
+### D-011 — Test start 2015, stride 5, min 1000 observations, fixed end (Build 01)
+Starting in 2015 leaves ≥ 15 years of training data for the ETFs and ≈ 10 years of
+"possibly seen" period before the first TSFM release, while clean windows run from the
+release to 2026-09-25. Stride 5 (weekly) gives ≈ 590 origins per asset and keeps TSFM
+inference affordable on CPU; overlapping 20-day targets are handled by HAC. The end date
+is fixed so the study does not change as new data arrive.
+
+### D-012 — CRPS from quantiles, h = 1 only (Build 01)
+All three TSFMs expose (or can produce) the nine deciles. CRPS is approximated as twice the
+mean pinball loss over these levels (a truncated quantile approximation; it ignores the
+tails beyond 10%/90%, identically for every model). For h > 1 the target is a sum/mean of
+future values, and quantiles of a sum cannot be recovered from per-step quantiles without
+a dependence assumption, so probabilistic evaluation is restricted to h = 1.
+
+### D-013 — HAC lag rule and HLN with an effective horizon (Build 01)
+With stride 5, a 20-day target overlaps the next three origins' targets, so forecast
+errors are MA(3) in origin units: `q_h = ⌈h/stride⌉ − 1` (0, 0, 3 for h = 1, 5, 20).
+Volatility clustering also makes *loss differentials* autocorrelated even without overlap,
+so the lag is the larger of `q_h` and the Newey–West (1994) rule of thumb. HLN's
+small-sample factor is applied with `k = q_h + 1`, the horizon measured in sampling units.
+
+### D-014 — Pooling with pre-test normalisation (Build 01)
+Raw MSEs differ hugely across assets (a 20-day return on AMZN vs TLT); averaging them would
+let a few volatile assets dominate. Dividing by a scale computed **before the first test
+origin** gives each asset comparable weight without using test-period information.
+QLIKE is already scale-free. The cross-sectional mean differential is then tested with
+DM-HLN, which accounts for cross-asset correlation because the averaging happens first.
+
+### D-015 — Contamination windows defined by label end vs release date (Build 01)
+Pretraining cutoffs are mostly undocumented. The only safe statement is that data after a
+checkpoint's public release cannot be in its pretraining set. "Possibly seen" therefore
+means "the whole target period ended before release". A 30-day buffer after release
+guards against small date uncertainties (e.g. Moirai 1.1 is documented only as "Jun 2024",
+so the last day of June is used). If the resolved checkpoint revision is later than the
+release date, the clean window must start after it; this is logged.
+
+### D-016 — Re-fit schedules (Build 01)
+Re-fitting GARCH at all ~15,000 (asset, origin) pairs × 2 windows is feasible but slow on a
+laptop; monthly re-fits with daily filtering are standard practice and lose little.
+LightGBM is re-fit yearly. These are fixed before any result is seen.
+
+### D-017 — MCS and bootstrap block length (Build 01)
+Block length `max(⌈T^{1/3}⌉, 2(q_h+1))`: the `T^{1/3}` rate is the MSE-optimal order for
+block bootstraps of a mean (Hall, Horowitz & Jing 1995), and the floor keeps overlapping
+targets within a block. A fixed rule avoids yet another estimated tuning parameter.
+
+### D-018 — Returns in percent (Build 01)
+`100·ln(C_t/C_{t-1})` improves the numerical conditioning of GARCH optimisation (as the
+`arch` documentation recommends) and makes variances readable (%² per day).
+
+### D-019 — Economic evaluation design (Build 01)
+Vol targeting on SPY: every 5 trading days, weight `w = min(2, σ* / σ̂)` with
+`σ* = 10%` annualised and `σ̂ = sqrt(252 · ŷ^rv_{t,5})`; cash earns 0; costs 5 bp per
+unit of turnover. Because GK excludes the overnight gap, realised volatility will be above
+the target for every model; the comparison across models is what matters. Illustrative only.
+
+### D-020 — Lessons authored as `.py` and built into `.ipynb` (Build 01)
+Notebook JSON is hard to review and diff. Each lesson's source is a percent-format Python
+file (`lesson.py`) that `lessons/_tools/build_notebooks.py` turns into `lesson.ipynb`. A
+test fails if the two drift apart, and CI executes every notebook with its solution.
