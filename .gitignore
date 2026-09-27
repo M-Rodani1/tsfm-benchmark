@@ -24,3 +24,6 @@ flashcards.csv
 
 # OS
 .DS_Store
+# Row-level losses of the larger runs are re-derivable (make reproduce-fixtures); their
+# SHA-256 is still listed in the run's RESULTS.md provenance section.
+results/default_fixtures/stats/losses.parquet

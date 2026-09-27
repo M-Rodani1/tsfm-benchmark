@@ -45,6 +45,7 @@ fixtures:  ## Regenerate the committed synthetic fixtures (deterministic)
 
 smoke:  ## End-to-end pipeline on committed synthetic fixtures (minutes, CPU)
 	$(RUN) tsfm-rc all configs/smoke.yaml
+	$(RUN) tsfm-rc all configs/smoke_real.yaml --skip-if-no-data
 
 fetch-data:  ## Download raw data for CONFIG into the immutable cache (network)
 	$(RUN) tsfm-rc fetch $(CONFIG)

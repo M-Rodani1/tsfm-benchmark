@@ -263,3 +263,25 @@ D-007's `mean(GK)/mean(r²)` was replaced by the QLIKE-optimal `mean(GK_t / s²_
 model's in-sample one-step variances, after the smoke evaluation showed a single jump day
 (r² ≫ GK) can halve the constant. `tests/test_baselines_recovery.py::test_proxy_alignment_robust_to_a_jump_day`
 demonstrates both behaviours.
+
+### D-035 — Reports are pure functions of stored artifacts (Build 06)
+`reports/<run>/RESULTS.md` and its figures are rendered only from `results/<run>/` (no
+statistics are recomputed, no wall-clock time is printed; figure files are written without
+timestamps and with a fixed SVG hash salt). A test re-renders the committed smoke report from
+the committed artifacts and requires byte equality, so any hand edit or stale report fails CI.
+`reports/RESULTS.md` shows the most complete run in the checkout (`default` > `default_fixtures`
+> `smoke`) and says which one it is.
+
+### D-036 — Charts encode role, not identity (Build 06)
+Model identity is always on an axis label; colour encodes only the role (baseline / TSFM /
+oracle) using slots 1–3 of the validated reference palette (all-pairs CVD and normal-vision
+checks pass; the aqua slot is < 3:1 contrast, so every mark is labelled and every figure is
+accompanied by a table). MCS p-values use a single-hue sequential ramp. Relative losses are
+plotted on a linear axis for readability.
+
+### D-037 — Verifying `make reproduce` without network (Build 06)
+`configs/default_fixtures.yaml` is the default configuration with only the data block and the
+economic-evaluation asset changed (the diff is two blocks). Running it exercises every stage
+with the default horizons, windows, stride, re-fit schedule, context length and bootstrap
+sizes. `configs/smoke_real.yaml` is a two-ETF real-data smoke run that `make smoke` executes
+only if its Yahoo data are already cached.

@@ -1,0 +1,43 @@
+# Tiny REAL-data smoke run (2 ETFs). Runs only if Yahoo data for these tickers are already
+# cached (`make fetch-data CONFIG=configs/smoke_real.yaml`); otherwise `make smoke` skips it.
+name: smoke_real
+description: Two liquid ETFs, short test period, for a quick real-data sanity check.
+seed: 20260927
+n_jobs: 4
+
+data:
+  provider: yfinance
+  tickers: [SPY, TLT]
+  start: 2010-01-04
+  end: 2026-09-25
+  raw_dir: data/raw
+
+evaluation:
+  test_start: 2023-01-03
+  stride: 10
+  min_train_obs: 750
+  windows: [expanding]
+  rolling_length: 750
+  primary_window: expanding
+
+models:
+  context_length: 512
+  refit_every: {garch: 8, gjr_garch: 8, lgbm: 40}
+  lgbm: {n_estimators: 50}
+  tsfms:
+    - {name: chronos_bolt_tiny, family: chronos, hf_id: amazon/chronos-bolt-tiny, release_date: 2024-11-26}
+    - {name: timesfm_2p5_200m, family: timesfm, hf_id: google/timesfm-2.5-200m-pytorch, release_date: 2025-09-15}
+    - {name: moirai_1p1_small, family: moirai, hf_id: Salesforce/moirai-1.1-R-small, release_date: 2024-06-30}
+
+stats:
+  n_bootstrap: 200
+
+economic:
+  asset: SPY
+  horizon: 5
+
+synthetic:
+  n_series: 2
+  n_days: 1500
+  test_days: 300
+  intraday_steps: 78

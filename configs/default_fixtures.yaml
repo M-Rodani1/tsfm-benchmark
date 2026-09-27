@@ -1,0 +1,73 @@
+# Pre-registered default design run on the committed SYNTHETIC fixtures (offline verification of
+# `make reproduce`). NOT market data. Differences from default.yaml: data block and economic asset only.
+name: default_fixtures
+description: >
+  VERIFICATION RUN ON SYNTHETIC FIXTURES of the pre-registered default design (same
+  horizons, windows, stride, models, bootstrap sizes). Used to verify `make reproduce`
+  where real data cannot be downloaded. Original description: Pre-registered main study. 5 ETFs + 21 US large caps, daily OHLCV 2000-2026,
+  expanding-window walk-forward from 2015, stride 5, horizons 1/5/20, smallest official
+  checkpoint of each TSFM, zero-shot, context 512.
+seed: 20260927
+n_jobs: 4
+
+data:
+  provider: fixture
+  fixture_file: data/fixtures/synthetic_ohlcv.csv
+  tickers: [SYN_GARCH_A, SYN_GARCH_B, SYN_HAR_A, SYN_HAR_B, SYN_QUIRKS]
+  start: 2010-01-04
+  end: 2026-06-30
+
+targets:
+  kinds: [returns, rv, volume]
+  horizons: [1, 5, 20]
+  rv_estimator: garman_klass
+
+evaluation:
+  test_start: 2015-01-02
+  stride: 5
+  min_train_obs: 1000
+  windows: [expanding, rolling]
+  rolling_length: 1000
+  primary_window: expanding
+
+models:
+  context_length: 512
+  refit_every: {garch: 4, gjr_garch: 4, lgbm: 50}
+  tsfms:
+    - name: chronos_bolt_tiny
+      family: chronos
+      hf_id: amazon/chronos-bolt-tiny
+      release_date: 2024-11-26
+    - name: timesfm_2p5_200m
+      family: timesfm
+      hf_id: google/timesfm-2.5-200m-pytorch
+      release_date: 2025-09-15
+    - name: moirai_1p1_small
+      family: moirai
+      hf_id: Salesforce/moirai-1.1-R-small
+      release_date: 2024-06-30
+      num_samples: 100
+
+stats:
+  alpha: 0.05
+  mcs_alpha: 0.10
+  n_bootstrap: 1000
+
+contamination:
+  enabled: true
+  buffer_days: 30
+
+economic:
+  enabled: true
+  asset: SYN_GARCH_A
+  horizon: 5
+  target_vol_annual: 0.10
+  max_leverage: 2.0
+  cost_bps: 5.0
+
+synthetic:
+  enabled: true
+  n_series: 10
+  n_days: 3000
+  test_days: 1000
+  intraday_steps: 390

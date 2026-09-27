@@ -38,6 +38,8 @@ jobs:
         run: uv run pytest
 
       - name: Smoke pipeline on committed fixtures
+        env:
+          HF_HUB_OFFLINE: "1"   # CI has no TSFM extra; never wait on the network
         run: make smoke
 
       - name: Upload smoke outputs
