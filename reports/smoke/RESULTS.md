@@ -544,8 +544,8 @@ Forecast rows without a realised target (end of sample or missing inputs), exclu
 
 - Config: `smoke` · config hash `129e0c563136469451a20443fa13e7721a2153a6aaf61a63a5fd4fd382fb8f57`
 - Cleaned-panel hash `7605425c082360805dc4ed160892ba080f93c94fe2d4fbe416d08f55d1892d4d` · raw-data hash `ae3cb5657856436d59b0750ea21242e4a296a312e88fb5486ee2697628adb3fb`
-- Git commit `03cc70847f11ab78b0cd3bf076a9c5d5eaa5f3de` (working tree dirty: True)
-- Statistics computed (UTC): 2026-09-27T21:17:02+00:00
+- Git commit `1fc055d06bbe1c54f28fa4b244e35cc6574d36c1` (working tree dirty: True)
+- Statistics computed (UTC): 2026-09-27T21:33:59+00:00
 - Packages: arch 8.0.0, chronos-forecasting 2.3.2, gluonts 0.14.4, huggingface-hub 0.36.2, lightgbm 4.7.0, matplotlib 3.11.2, numpy 1.26.4, pandas 2.1.4, pyarrow 25.0.1, pydantic 2.13.5, scipy 1.11.4, statsmodels 0.15.0, timesfm 3.0.2, torch 2.4.1, transformers 4.57.6, tsfm-reality-check 0.1.0, uni2ts 2.0.0, yfinance 1.7.0
 
 Artifacts (every number above is read from these files):
@@ -553,23 +553,23 @@ Artifacts (every number above is read from these files):
 | file | sha256 (first 16) |
 |---|---|
 | results/smoke/cleaning_report.csv | ae5661f0798078ab |
-| results/smoke/forecasts_baselines.parquet | 09529a1299d7dd8d |
-| results/smoke/forecasts_synthetic.parquet | 8dfd00e04adf8107 |
-| results/smoke/forecasts_tsfm.parquet | e291d2ec9643515e |
+| results/smoke/forecasts_baselines.parquet | 84a1d4f958281ac6 |
+| results/smoke/forecasts_synthetic.parquet | d321f66f3aae8de7 |
+| results/smoke/forecasts_tsfm.parquet | 8511e763fe0fc0a9 |
 | results/smoke/model_status.json | 5657a41d8dd9a9ce |
-| results/smoke/provenance.json | 8f3a89925310ab6c |
-| results/smoke/stats/contamination.parquet | a320c43866a8a31c |
-| results/smoke/stats/data_quality.parquet | a18562e7bcc41cc8 |
-| results/smoke/stats/dm_all.parquet | eb649848dca04de9 |
-| results/smoke/stats/dm_per_asset.parquet | 857a1c7defcc75b8 |
-| results/smoke/stats/dm_primary.parquet | f2a75440286dd902 |
-| results/smoke/stats/economic.parquet | c768d00391f9fd50 |
-| results/smoke/stats/loss_diff_series.parquet | 4700640767cf5856 |
-| results/smoke/stats/losses.parquet | 27df2d6f761a20a4 |
-| results/smoke/stats/mcs.parquet | 21bf2f428880173f |
-| results/smoke/stats/metrics.parquet | 29bd585bfdc33676 |
-| results/smoke/stats/probabilistic.parquet | 545d6782643ccf6d |
-| results/smoke/stats/scales.parquet | 7b9b4d0f8cd8d41c |
-| results/smoke/stats/synthetic.parquet | d6ddf989abee9f38 |
-| results/smoke/stats/windows.parquet | bd333890a5b118f8 |
+| results/smoke/provenance.json | 3203340b94c7c369 |
+| results/smoke/stats/contamination.parquet | b785e962208d63a6 |
+| results/smoke/stats/data_quality.parquet | 47f9d08138334778 |
+| results/smoke/stats/dm_all.parquet | 90201064bd41c103 |
+| results/smoke/stats/dm_per_asset.parquet | c77c5306cdfe6089 |
+| results/smoke/stats/dm_primary.parquet | eedab0b8b372b63b |
+| results/smoke/stats/economic.parquet | 4be6dffcbe3734d3 |
+| results/smoke/stats/loss_diff_series.parquet | 9457d7f161ebe25c |
+| results/smoke/stats/losses.parquet | 8a85e28ed523c43a |
+| results/smoke/stats/mcs.parquet | 2ddf984a11457d68 |
+| results/smoke/stats/metrics.parquet | 6036d61c96814285 |
+| results/smoke/stats/probabilistic.parquet | fdefc1333c701134 |
+| results/smoke/stats/scales.parquet | 6932e7987c894340 |
+| results/smoke/stats/synthetic.parquet | 1a8fbddf845b5d6f |
+| results/smoke/stats/windows.parquet | a025860886725dfd |
 | results/smoke/synthetic_meta.json | c70a9651531f21d6 |

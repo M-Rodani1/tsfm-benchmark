@@ -161,8 +161,39 @@ def dm_primary(L: pd.DataFrame, cfg: RunConfig, status: dict) -> pd.DataFrame:
     return df
 
 
-def dm_all(L: pd.DataFrame, cfg: RunConfig, periods: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    rows, series = [], []
+def diff_series(L: pd.DataFrame, cfg: RunConfig) -> pd.DataFrame:
+    """Loss differential (model - reference, primary loss) per origin, full test period.
+
+    Pooled (normalised, cross-sectional mean) for every window variant, and per asset
+    (raw primary loss) for the expanding window. ``cum_diff`` is the running sum, stored so
+    that the dashboard only plots stored numbers.
+    """
+    parts = []
+    for window in cfg.evaluation.windows:
+        for kind in cfg.targets.kinds:
+            ref = cfg.models.reference[kind]
+            loss = PRIMARY_LOSS[kind]
+            for h in cfg.targets.horizons:
+                S = L[(L["target"] == kind) & (L["horizon"] == h) & (L["window"] == window)]
+                for m in sorted(set(S["model"]) - {ref}):
+                    scopes = [("POOLED", S, f"{loss}_n")]
+                    if window == "expanding":
+                        scopes += [(t, St, loss) for t, St in S.groupby("ticker")]
+                    for scope, Ss, col in scopes:
+                        pp = paired_pooled(Ss, m, ref, col)
+                        if len(pp) < 2:
+                            continue
+                        d = (pp["m"] - pp["ref"]).to_numpy()
+                        parts.append(pd.DataFrame({
+                            "target": kind, "horizon": h, "window": window, "model": m, "reference": ref,
+                            "ticker": scope, "origin": pp.index, "diff": d, "cum_diff": np.cumsum(d),
+                            "n_assets": pp["n_assets"].to_numpy(),
+                        }))
+    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+
+
+def dm_all(L: pd.DataFrame, cfg: RunConfig, periods: list[str]) -> pd.DataFrame:
+    rows = []
     for period in periods:
         P = L[_period_mask(L, period)]
         for window in cfg.evaluation.windows:
@@ -178,16 +209,11 @@ def dm_all(L: pd.DataFrame, cfg: RunConfig, periods: list[str]) -> tuple[pd.Data
                             continue
                         fam.append({"period": period, "window": window, "target": kind, "horizon": h, "model": m,
                                     "reference": ref, "loss": loss, **_dm_row(pp, h, cfg, ("dm_all", period, window, m, kind, h))})
-                        if period == "full" and window == "expanding":
-                            series.append(pd.DataFrame({"target": kind, "horizon": h, "model": m, "reference": ref,
-                                                        "origin": pp.index, "diff": (pp["m"] - pp["ref"]).to_numpy(),
-                                                        "n_assets": pp["n_assets"].to_numpy()}))
             if fam:
                 f = pd.DataFrame(fam)
                 f["p_holm"], f["reject_holm"] = holm(f["p_value"].to_numpy(), cfg.stats.alpha)
                 rows.append(f)
-    return (pd.concat(rows, ignore_index=True) if rows else pd.DataFrame(),
-            pd.concat(series, ignore_index=True) if series else pd.DataFrame())
+    return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
 
 
 def dm_per_asset(L: pd.DataFrame, cfg: RunConfig, status: dict) -> pd.DataFrame:
@@ -382,7 +408,8 @@ def evaluate(
     out["windows"] = pd.DataFrame([w.as_dict() for w in windows.values()]).assign(common_clean_start=str(ccs.date()) if ccs is not None else None)
     out["metrics"] = metrics_table(L, cfg, periods)
     out["dm_primary"] = dm_primary(L, cfg, status)
-    out["dm_all"], out["loss_diff_series"] = dm_all(L, cfg, periods)
+    out["dm_all"] = dm_all(L, cfg, periods)
+    out["loss_diff_series"] = diff_series(L, cfg)
     out["dm_per_asset"] = dm_per_asset(L, cfg, status)
     out["mcs"] = mcs_table(L, cfg, periods)
     out["probabilistic"] = probabilistic_table(L, cfg, periods)

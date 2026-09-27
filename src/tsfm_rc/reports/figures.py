@@ -52,7 +52,8 @@ def forest_relative_loss(dm_all: pd.DataFrame, out_dir: Path, period: str = "ful
 
 def cumulative_loss_diff(series: pd.DataFrame, out_dir: Path, horizon: int = 1) -> list[str]:
     """Small multiples: cumulative pooled loss differential over time (model - reference)."""
-    S = series[series["horizon"] == horizon]
+    S = series[(series["horizon"] == horizon) & (series.get("ticker", "POOLED") == "POOLED")
+               & (series.get("window", "expanding") == "expanding")]
     if S.empty:
         return []
     paths = []
@@ -64,7 +65,7 @@ def cumulative_loss_diff(series: pd.DataFrame, out_dir: Path, horizon: int = 1) 
         fig, axes = plt.subplots(rows, cols, figsize=(3.2 * cols, 2.2 * rows), sharey=True, squeeze=False)
         for ax, m in zip(axes.flat, models, strict=False):
             g = G[G["model"] == m].sort_values("origin")
-            ax.plot(pd.to_datetime(g["origin"]), g["diff"].cumsum(), color=style.ROLE[style.role_of(m)])
+            ax.plot(pd.to_datetime(g["origin"]), g["cum_diff"], color=style.ROLE[style.role_of(m)])
             ax.axhline(0, color=style.AXIS, lw=1)
             ax.set_title(m, loc="left", fontsize=9)
             ax.tick_params(axis="x", labelrotation=30)

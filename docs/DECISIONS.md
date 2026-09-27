@@ -285,3 +285,18 @@ economic-evaluation asset changed (the diff is two blocks). Running it exercises
 with the default horizons, windows, stride, re-fit schedule, context length and bootstrap
 sizes. `configs/smoke_real.yaml` is a two-ETF real-data smoke run that `make smoke` executes
 only if its Yahoo data are already cached.
+
+### D-038 — Dashboard design (Build 07)
+One self-contained `reports/dashboard/index.html` (inline CSS and vanilla JavaScript, SVG
+charts, no external scripts, fonts or network calls) embeds the stored tables of every run in
+`results/`, selectable in a filter row (run, period, window, target, horizon, asset, model).
+The page only filters and draws stored numbers; cumulative loss differentials are precomputed
+by the evaluation stage (`loss_diff_series.cum_diff`). Per-asset differential series are
+stored for the expanding window only, and per-asset DM tests for the common clean window only
+(to bound file size); the page says so when a selection has no stored data. Colour follows
+the model: the three TSFMs take palette slots 1–3; baselines share slots 4–7 across targets
+(no chart ever shows two models with the same slot, because the sharing models never appear
+under the same target). The DM/MCS matrix uses a diverging blue–grey–red scale in seven bins
+of relative loss with ★ (Holm-significant) and ● (in MCS) as secondary encodings, plus a
+table view. Light and dark themes are separately specified token sets; `#dark` / `#light`
+in the URL forces one.

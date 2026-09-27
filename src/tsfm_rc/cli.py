@@ -76,6 +76,15 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_dashboard(args: argparse.Namespace) -> int:
+    from tsfm_rc.paths import REPORTS_DIR, RESULTS_DIR
+    from tsfm_rc.reports.dashboard import build_dashboard
+
+    path = build_dashboard(RESULTS_DIR, REPORTS_DIR / "dashboard" / "index.html")
+    print(f"[dashboard] {path} ({path.stat().st_size / 1e6:.1f} MB, open it in any browser; no server needed)")
+    return 0
+
+
 def _has_data(cfg) -> bool:
     from tsfm_rc.data.cache import RawCache
     from tsfm_rc.paths import resolve
@@ -95,8 +104,9 @@ def _cmd_all(args: argparse.Namespace) -> int:
     if rc:
         return rc
     rc = _cmd_report(args)
-    # Later builds append stages here (dashboard).
-    return rc
+    if rc:
+        return rc
+    return _cmd_dashboard(args)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -128,6 +138,10 @@ def build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("report", help="build reports/<name>/RESULTS.md and figures from stored results")
     r.add_argument("config")
     r.set_defaults(func=_cmd_report)
+
+    d = sub.add_parser("dashboard", help="build reports/dashboard/index.html from all stored results")
+    d.add_argument("config", nargs="?", help="ignored (the dashboard includes every run)")
+    d.set_defaults(func=_cmd_dashboard)
 
     e = sub.add_parser("evaluate", help="recompute statistics from stored forecasts")
     e.add_argument("config")
