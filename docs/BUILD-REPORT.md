@@ -26,7 +26,7 @@ answered**; running `make reproduce` on a normal internet connection is the next
 | 05 | `11f0663` | Metrics (MSE, MAE, QLIKE, pinball, CRPS, direction, OOS R²), DM-HLN-HAC (amendment A2), Holm, MCS (T_max/T_R), stationary bootstrap, pooling, contamination Δ test, economic backtest, proxy alignment revised (amendment A3), evaluation orchestrator, lessons 06–08 |
 | 06 | `1fc055d` | Pipeline stages and CLI (`run`, `evaluate`, `report`, `all`), `make smoke` / `reproduce` / `reproduce-fixtures`, generated `RESULTS.md` + figures, `default_fixtures` verification run, lesson 09 |
 | 07 | `9cbe4fa` | Self-contained static dashboard (`reports/dashboard/index.html`), per-asset differential series, lesson 09 pointer |
-| 08 | see §9 | Pinball losses reported separately, `make doctor`, `make flashcards`, lessons 00 and 10, lessons index, README quickstart, `DEFINITION-OF-DONE.md`, this report, provenance "dirty" flag ignores generated outputs, artifacts regenerated from the clean Build 08 tree |
+| 08 | `158d885` (+ artifacts commit, §9) | Pinball losses reported separately, `make doctor`, `make flashcards`, lessons 00 and 10, lessons index, README quickstart, `DEFINITION-OF-DONE.md`, this report, provenance "dirty" flag ignores generated outputs, artifacts regenerated from the clean Build 08 tree |
 
 CI (`.github/workflows/ci.yml`: lint, config validation, full pytest suite including
 notebook execution, `make smoke`) was green on GitHub Actions for every build commit.
@@ -189,4 +189,17 @@ Design history: `docs/PREREGISTRATION.md` §11, `docs/DECISIONS.md`.
 
 ## 9. Build 08 commit and regenerated artifacts
 
-*(filled in by the commit that follows Build 08)*
+- **Build 08 commit:** `158d88556de1ddb5ef7b01d8b5e22b97cf4f69e3`. GitHub Actions CI run
+  `36353141857` on that commit: success (lint, config validation, 253 tests, `make smoke`).
+- **Regenerated artifacts:** from a clean checkout of that commit, `make reproduce-fixtures`
+  (2 min 57 s) and then `make smoke` (37 s) were run. Every `provenance.json`, every
+  Parquet provenance record and both `RESULTS.md` provenance sections now show commit
+  `158d885…` with `working tree dirty: False`. (`git_info()` treats `results/` and `reports/`
+  as outputs, so rewriting them does not count as dirty.)
+- **What changed in the numbers:** nothing. Every stored table was compared cell by cell
+  (`pandas.testing.assert_frame_equal`, exact) with the version committed in Build 08.
+  All are identical except `results/default_fixtures/stats/probabilistic.parquet`. That table
+  was produced before Build 08, so it gains the three pinball columns; its other columns are
+  identical. Only the artifact SHA-256 values change, because the embedded provenance changed.
+- The follow-up commit ("Build 08 (artifacts)") contains only these regenerated
+  `results/` and `reports/` files and this section.

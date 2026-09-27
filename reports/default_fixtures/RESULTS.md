@@ -341,20 +341,20 @@ Hansen–Lunde–Nason MCS, T_max statistic, α = 0.10, stationary bootstrap (B 
 
 ## 7. Probabilistic forecasts (h = 1)
 
-CRPS approximated from the nine deciles (DECISIONS D-012), normalised by the pre-test standard deviation; reference: returns → `hist_mean`, rv → `har`, volume → `har`.
+CRPS approximated from the nine deciles (DECISIONS D-012), normalised by the pre-test standard deviation, and raw pinball losses at τ = 0.1, 0.5, 0.9 (target units); reference: returns → `hist_mean`, rv → `har`, volume → `har`.
 
-| period | target | model | mean CRPS (norm.) | p vs ref | Holm p |
-|---|---|---|---|---|---|
-| common_clean | returns | ar_bic | 0.622 | 0.540 | 1.000 |
-| common_clean | returns | hist_mean | 0.624 | – | – |
-| common_clean | rv | har | 0.426 | – | – |
-| common_clean | volume | har | 0.539 | – | – |
-| common_clean | volume | ar_bic | 0.541 | 0.531 | 1.000 |
-| full | returns | hist_mean | 0.647 | – | – |
-| full | returns | ar_bic | 0.652 | <0.001 | <0.001 |
-| full | rv | har | 0.616 | – | – |
-| full | volume | har | 0.521 | – | – |
-| full | volume | ar_bic | 0.524 | 0.060 | 0.060 |
+| period | target | model | mean CRPS (norm.) | pinball τ=0.1 | pinball τ=0.5 | pinball τ=0.9 | p vs ref (CRPS) | Holm p |
+|---|---|---|---|---|---|---|---|---|
+| common_clean | returns | ar_bic | 0.622 | 0.243 | 0.483 | 0.246 | 0.540 | 1.000 |
+| common_clean | returns | hist_mean | 0.624 | 0.253 | 0.482 | 0.244 | – | – |
+| common_clean | rv | har | 0.426 | 0.106 | 0.361 | 0.263 | – | – |
+| common_clean | volume | har | 0.539 | 0.051 | 0.111 | 0.050 | – | – |
+| common_clean | volume | ar_bic | 0.541 | 0.052 | 0.111 | 0.049 | 0.531 | 1.000 |
+| full | returns | hist_mean | 0.647 | 0.259 | 0.517 | 0.238 | – | – |
+| full | returns | ar_bic | 0.652 | 0.263 | 0.517 | 0.242 | <0.001 | <0.001 |
+| full | rv | har | 0.616 | 0.139 | 0.479 | 0.384 | – | – |
+| full | volume | har | 0.521 | 0.048 | 0.108 | 0.048 | – | – |
+| full | volume | ar_bic | 0.524 | 0.048 | 0.109 | 0.049 | 0.060 | 0.060 |
 
 ## 8. Contamination control
 
@@ -547,8 +547,8 @@ Forecast rows without a realised target (end of sample or missing inputs), exclu
 
 - Config: `default_fixtures` · config hash `ee70fd888c0ba6f858ceeba8dbb381f26752a6c7a0e829632e9c4f792d48b0b3`
 - Cleaned-panel hash `65b80dd3451afb08a8c3ed1263a74ba4652ec339686d908f37f04bbd0534d7a2` · raw-data hash `4cfd9de8f6a3100258f7c109b11803cf8f3788eed31de891020016748f0fbb6b`
-- Git commit `1fc055d06bbe1c54f28fa4b244e35cc6574d36c1` (working tree dirty: True)
-- Statistics computed (UTC): 2026-09-27T21:32:01+00:00
+- Git commit `158d88556de1ddb5ef7b01d8b5e22b97cf4f69e3` (working tree dirty: False)
+- Statistics computed (UTC): 2026-09-27T21:52:43+00:00
 - Packages: arch 8.0.0, chronos-forecasting 2.3.2, gluonts 0.14.4, huggingface-hub 0.36.2, lightgbm 4.7.0, matplotlib 3.11.2, numpy 1.26.4, pandas 2.1.4, pyarrow 25.0.1, pydantic 2.13.5, scipy 1.11.4, statsmodels 0.15.0, timesfm 3.0.2, torch 2.4.1, transformers 4.57.6, tsfm-reality-check 0.1.0, uni2ts 2.0.0, yfinance 1.7.0
 
 Artifacts (every number above is read from these files):
@@ -556,23 +556,23 @@ Artifacts (every number above is read from these files):
 | file | sha256 (first 16) |
 |---|---|
 | results/default_fixtures/cleaning_report.csv | ae5661f0798078ab |
-| results/default_fixtures/forecasts_baselines.parquet | 2598ae74fa4a5bed |
-| results/default_fixtures/forecasts_synthetic.parquet | 0785981935416375 |
-| results/default_fixtures/forecasts_tsfm.parquet | 048705ae71fae464 |
+| results/default_fixtures/forecasts_baselines.parquet | c311a7c1fe9bd4d0 |
+| results/default_fixtures/forecasts_synthetic.parquet | 1fadef24cc7dc584 |
+| results/default_fixtures/forecasts_tsfm.parquet | 1293de682b8028ec |
 | results/default_fixtures/model_status.json | 5657a41d8dd9a9ce |
-| results/default_fixtures/provenance.json | 330a32ed7a4d5c00 |
-| results/default_fixtures/stats/contamination.parquet | 58df5976b07688d7 |
-| results/default_fixtures/stats/data_quality.parquet | b7d164cff75d09c3 |
-| results/default_fixtures/stats/dm_all.parquet | 1f8c62ddec048c7d |
-| results/default_fixtures/stats/dm_per_asset.parquet | 2cea8961776ae69e |
-| results/default_fixtures/stats/dm_primary.parquet | 52ec350fcb9ee233 |
-| results/default_fixtures/stats/economic.parquet | 43e1f2f32f9e8683 |
-| results/default_fixtures/stats/loss_diff_series.parquet | 1b28ad4292825f43 |
-| results/default_fixtures/stats/losses.parquet | 158227893f4d37d1 |
-| results/default_fixtures/stats/mcs.parquet | bbd7eafbe2c9b9b0 |
-| results/default_fixtures/stats/metrics.parquet | 55081cb15cc59ba7 |
-| results/default_fixtures/stats/probabilistic.parquet | c009afc85bdb6032 |
-| results/default_fixtures/stats/scales.parquet | cd5e8f98f8cd040c |
-| results/default_fixtures/stats/synthetic.parquet | 33ae0b060a380af4 |
-| results/default_fixtures/stats/windows.parquet | a64e573087aaa890 |
+| results/default_fixtures/provenance.json | 475c1ea23473d6b6 |
+| results/default_fixtures/stats/contamination.parquet | 50a1be8784a3680e |
+| results/default_fixtures/stats/data_quality.parquet | da8bfca7fac6c892 |
+| results/default_fixtures/stats/dm_all.parquet | 5c12af448757faf0 |
+| results/default_fixtures/stats/dm_per_asset.parquet | c13999c64d1ac8ee |
+| results/default_fixtures/stats/dm_primary.parquet | c22bee083d266b13 |
+| results/default_fixtures/stats/economic.parquet | d198b313657230b6 |
+| results/default_fixtures/stats/loss_diff_series.parquet | e06aa106fd516295 |
+| results/default_fixtures/stats/losses.parquet | 87c59da5eda47fe2 |
+| results/default_fixtures/stats/mcs.parquet | 3136accfaf2b5a4e |
+| results/default_fixtures/stats/metrics.parquet | 945e1c0bb7ec4a61 |
+| results/default_fixtures/stats/probabilistic.parquet | b7d82f7622f15c07 |
+| results/default_fixtures/stats/scales.parquet | 5949f44d6d842f16 |
+| results/default_fixtures/stats/synthetic.parquet | 9f572f1ef333c396 |
+| results/default_fixtures/stats/windows.parquet | fff0cb6933d52eb1 |
 | results/default_fixtures/synthetic_meta.json | 3e07519822016f20 |
