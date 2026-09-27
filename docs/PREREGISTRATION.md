@@ -233,4 +233,14 @@ S9 full test period ignoring contamination windows (labelled "possibly contamina
 
 ## 11. Amendments
 
-*(none yet)*
+### A1 — 2026-09-27 (Build 04): effective release date for contamination windows
+**Change.** In section 9, "release date" is replaced by the *effective release date* =
+max(documented release date, last commit date of the model's weight files at the resolved
+Hugging Face revision). Both window boundaries use it. If the weight dates cannot be read,
+the documented release date is used (and this is logged).
+**Why.** A checkpoint can be re-uploaded after its announced release (possibly retrained
+on later data). A README-only commit must not shorten the clean window, hence weight files
+only. This is strictly more conservative than the original rule.
+**Results seen at the time?** No TSFM forecast had been produced on any data (the weights
+could not be downloaded in the build environment). Baseline forecasts existed only for the
+synthetic smoke fixtures; no real-market result of any kind existed.

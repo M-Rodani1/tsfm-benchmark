@@ -91,6 +91,50 @@ def stage_baselines(cfg, panel):
     return fc
 
 
+def stage_tsfms(cfg, panel):
+    """Zero-shot TSFM forecasts -> forecasts_tsfm.parquet and model_status.json."""
+    import time
+
+    from tsfm_rc.engine.tsfm_runner import load_backends, run_tsfms, write_status
+    from tsfm_rc.provenance import write_parquet_with_provenance
+
+    t0 = time.time()
+    loaded = load_backends(cfg)
+    fc, status = run_tsfms(panel.daily, panel.calendar, cfg, loaded=loaded)
+    write_status(status, cfg.run_dir / "model_status.json")
+    write_parquet_with_provenance(fc, cfg.run_dir / "forecasts_tsfm.parquet",
+                                  run_provenance(cfg, panel, stage="tsfm", model_status=status))
+    for name, st in status.items():
+        msg = st["status"] if st["status"] == "AVAILABLE" else f"UNAVAILABLE: {st['reason'][:160]}"
+        print(f"[tsfm] {name}: {msg}")
+    print(f"[tsfm] {len(fc):,} forecast rows in {time.time() - t0:.0f}s")
+    return fc, status, loaded
+
+
+def stage_synthetic(cfg, panel, loaded=None):
+    """Synthetic-control experiment -> forecasts_synthetic.parquet and synthetic_meta.json."""
+    import json
+    import time
+
+    from tsfm_rc.contamination.synthetic_control import run_synthetic_control
+    from tsfm_rc.engine.tsfm_runner import run_tsfms
+    from tsfm_rc.provenance import write_parquet_with_provenance
+
+    if not cfg.synthetic.enabled:
+        return None
+    t0 = time.time()
+    calib = cfg.economic.asset if cfg.economic.asset in panel.daily else panel.tickers[0]
+    fc, meta = run_synthetic_control(cfg, panel.daily[calib],
+                                     run_tsfms_fn=lambda d, cal, c: run_tsfms(d, cal, c, loaded=loaded))
+    meta["calibration_asset"] = calib
+    write_parquet_with_provenance(fc, cfg.run_dir / "forecasts_synthetic.parquet",
+                                  run_provenance(cfg, panel, stage="synthetic_control", synthetic_meta=meta))
+    with open(cfg.run_dir / "synthetic_meta.json", "w", encoding="utf-8") as fh:
+        json.dump(meta, fh, indent=2, default=str)
+    print(f"[synthetic] {fc['ticker'].nunique()} simulated series, {len(fc):,} rows in {time.time() - t0:.0f}s")
+    return fc
+
+
 def _cmd_all(args: argparse.Namespace) -> int:
     """Run every pipeline stage implemented so far for one config."""
     cfg = load_config(args.config)
@@ -100,7 +144,9 @@ def _cmd_all(args: argparse.Namespace) -> int:
         print("[data] no data available; stopping. Run `make fetch-data` (needs network).")
         return 1
     stage_baselines(cfg, panel)
-    # Later builds append stages here (TSFMs, evaluate, report, dashboard).
+    _, _, loaded = stage_tsfms(cfg, panel)
+    stage_synthetic(cfg, panel, loaded)
+    # Later builds append stages here (evaluate, report, dashboard).
     return 0
 
 

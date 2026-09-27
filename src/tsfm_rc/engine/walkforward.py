@@ -43,8 +43,15 @@ def qcol(level: float) -> str:
 
 FORECAST_COLUMNS = [
     "ticker", "target", "model", "window", "origin", "asset_date", "ordinal",
-    "horizon", "y_true", "y_pred", "n_train", "refit", "flag",
+    "horizon", "label_end", "y_true", "y_pred", "n_train", "refit", "flag",
 ]
+
+
+def label_end_date(index: pd.DatetimeIndex, asset_date: pd.Timestamp, h: int) -> pd.Timestamp:
+    """Date of the last day in the h-step label window (the asset's h-th trading day after
+    ``asset_date``), or NaT if that day is beyond the data. Used for contamination windows."""
+    pos = int(index.searchsorted(asset_date, side="left")) + h
+    return index[pos] if pos < len(index) else pd.NaT
 
 
 @dataclass(frozen=True)
@@ -97,7 +104,8 @@ def run_task(daily: pd.DataFrame, task: Task, origins: Sequence[ForecastOrigin],
                 row = {
                     "ticker": task.ticker, "target": task.kind, "model": name, "window": task.window,
                     "origin": o.timestamp, "asset_date": asset_date, "ordinal": o.ordinal,
-                    "horizon": h, "y_true": float(targets[h].get(asset_date, np.nan)),
+                    "horizon": h, "label_end": label_end_date(daily.index, asset_date, h),
+                    "y_true": float(targets[h].get(asset_date, np.nan)),
                     "y_pred": float(fc.point[h]), "n_train": len(hist), "refit": refit,
                     "flag": str(fc.meta.get("fallback", "")),
                 }

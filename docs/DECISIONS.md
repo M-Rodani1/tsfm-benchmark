@@ -216,3 +216,38 @@ per horizon, with the forecast floored at 1% of the window's mean GK variance (a
 go negative). Log-HAR or WLS would be reasonable alternatives but were not pre-registered.
 The seasonal-naive volume model maps future steps to weekdays with a business-day offset,
 ignoring holidays (a small approximation affecting a few steps per year).
+
+### D-029 — TSFM APIs verified against installed code (Build 04)
+The wrappers were written after reading the installed sources: `chronos-forecasting 2.3.2`
+(`BaseChronosPipeline.predict_quantiles` returns quantiles `(B, S, Q)` and a "mean" that is
+the median for Bolt), `timesfm 3.0.2` (`TimesFM_2p5_200M_torch`; `forecast` returns
+`(B, S, 10)` with channel 0 = mean and 1..9 = deciles; channel 5 is the point forecast),
+`uni2ts 2.0.0` (`MoiraiForecast.forward` returns samples `(B, num_samples, S)`). Tests build
+tiny randomly initialised instances of the real library models and run them through our
+adapters (shapes, determinism, batch invariance, causality). Those random models are used
+in tests only; nothing they output is stored or reported. TimesFM is loaded with
+`torch_compile=False` (compilation time on CPU outweighs the gain for our batch sizes)
+and the flags recommended in its README (`normalize_inputs`, continuous quantile head,
+flip invariance, positivity inference, quantile-crossing fix).
+
+### D-030 — Moirai patch size "auto" and its 20 extra observations (Build 04)
+Moirai 1.x needs a patch size. Hand-picking one would be a tuning decision; the library's
+default `patch_size="auto"` instead selects it by the model's own validation loss on the
+last `prediction_length` (= 20) points of the input. The forecast is still conditioned on
+the last 512 observations, but the model receives 532 in total. This is a small departure
+from "identical context for all TSFMs", made to avoid tuning; it uses only data ≤ t.
+
+### D-031 — Synthetic-control calibration (Build 04)
+The synthetic series are calibrated on the economic-evaluation asset (SPY; a fixture ticker
+in smoke runs): GARCH(1,1) by Gaussian MLE (the simulator's intraday paths are Gaussian),
+HAR by OLS of next-day GK on its 1/5/22-day means. HAR coefficients are clipped at zero and
+scaled to persistence ≤ 0.95, and the multiplicative shock s.d. is fixed at 0.5, because
+the OLS fit on a noisy proxy cannot identify the latent shock size. GARCH persistence is
+capped at 0.99. The calibration uses the full sample of that one asset; this is a choice of
+simulation parameters, not a forecast, so it is not a leak.
+
+### D-032 — TSFM forecasts and the two window variants (Build 04)
+TSFMs have no training window, so the same forecast is used in both the expanding and the
+rolling comparison. For Moirai's sampling, the random seed is derived from the run seed and
+the batch number; with a cold cache and a fixed batch size the results are reproducible, and
+the cache guarantees identical values on reruns.

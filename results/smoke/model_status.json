@@ -1,0 +1,20 @@
+{
+  "chronos_bolt_tiny": {
+    "status": "UNAVAILABLE",
+    "reason": "could not download 'amazon/chronos-bolt-tiny' from Hugging Face (ProxyError: (MaxRetryError(\"HTTPSConnectionPool(host='huggingface.co', port=443): Max retries exceeded with url: /api/models/amazon/chronos-bolt-tiny/revision/main (Caused by ProxyError('Unable to connect to prox). Check your internet connection / proxy, or pre-download with `huggingface-cli download amazon/chronos-bolt-tiny`.",
+    "hf_id": "amazon/chronos-bolt-tiny",
+    "release_date": "2024-11-26"
+  },
+  "timesfm_2p5_200m": {
+    "status": "UNAVAILABLE",
+    "reason": "could not download 'google/timesfm-2.5-200m-pytorch' from Hugging Face (ProxyError: (MaxRetryError(\"HTTPSConnectionPool(host='huggingface.co', port=443): Max retries exceeded with url: /api/models/google/timesfm-2.5-200m-pytorch/revision/main (Caused by ProxyError('Unable to connect ). Check your internet connection / proxy, or pre-download with `huggingface-cli download google/timesfm-2.5-200m-pytorch`.",
+    "hf_id": "google/timesfm-2.5-200m-pytorch",
+    "release_date": "2025-09-15"
+  },
+  "moirai_1p1_small": {
+    "status": "UNAVAILABLE",
+    "reason": "could not download 'Salesforce/moirai-1.1-R-small' from Hugging Face (ProxyError: (MaxRetryError(\"HTTPSConnectionPool(host='huggingface.co', port=443): Max retries exceeded with url: /api/models/Salesforce/moirai-1.1-R-small/revision/main (Caused by ProxyError('Unable to connect to). Check your internet connection / proxy, or pre-download with `huggingface-cli download Salesforce/moirai-1.1-R-small`.",
+    "hf_id": "Salesforce/moirai-1.1-R-small",
+    "release_date": "2024-06-30"
+  }
+}
