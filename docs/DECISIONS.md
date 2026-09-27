@@ -155,3 +155,31 @@ the target for every model; the comparison across models is what matters. Illust
 Notebook JSON is hard to review and diff. Each lesson's source is a percent-format Python
 file (`lesson.py`) that `lessons/_tools/build_notebooks.py` turns into `lesson.ipynb`. A
 test fails if the two drift apart, and CI executes every notebook with its solution.
+
+### D-021 — Synthetic fixtures (Build 02)
+Five synthetic tickers (2010-01-04 to 2026-06-30, US-federal-holiday business-day calendar as
+an approximation of the NYSE calendar) are committed in `data/fixtures/` with a manifest of
+SHA-256 hashes and generating parameters: two GARCH(1,1) and two HAR-type (multiplicative
+error, levels) variance processes, plus `SYN_QUIRKS` (GARCH) which carries quarterly dividends
+and one instance of every data problem the cleaning rules handle. Prices follow a Brownian
+path within each day (390 steps, open = previous close), so OHLC and Garman–Klass are
+internally consistent and the true variance is stored in `synthetic_latent.csv`. Log volume is
+a two-component AR process with a day-of-week effect, **independent of volatility** (a
+simplification: real volume and volatility are correlated). A test regenerates the fixtures
+from the seed and compares them with the committed files.
+
+### D-022 — Provider details (Build 02)
+`yfinance` is called with `auto_adjust=False, actions=True, repair=False`: we want Yahoo's
+split-adjusted OHLC plus the separate split/dividend-adjusted close, and we do not want the
+library to silently "repair" prices (our cleaning logs every change instead). The raw cache
+stores exactly what the provider returned (CSV, shortest round-trip float format). When a
+ticker has several cached downloads, the earliest is used so that a study does not silently
+change when Yahoo revises history. If a ticker cannot be downloaded it is reported as
+unavailable and the run continues with the others. A `csv` provider (Yahoo-format files in a
+folder) exists as a fallback if `yfinance` breaks.
+
+### D-023 — Missing daily values (Build 02)
+A zero high–low range makes GK undefined (logged as `zero_range`); zero volume on a trading
+day becomes missing (`zero_volume`). Targets that include such a day are missing and are
+dropped from evaluation (counted in the report), never imputed. Model *inputs* forward-fill
+the last valid value (a causal operation), because every model needs a complete context.

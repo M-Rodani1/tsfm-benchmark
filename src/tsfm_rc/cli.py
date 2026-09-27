@@ -22,11 +22,58 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_fixtures(args: argparse.Namespace) -> int:
+    from tsfm_rc.data.synthetic import write_fixtures
+    from tsfm_rc.paths import FIXTURE_DIR
+
+    man = write_fixtures(FIXTURE_DIR)
+    for f, h in man["files"].items():
+        print(f"wrote {FIXTURE_DIR / f}  sha256={h}")
+    return 0
+
+
+def _cmd_fetch(args: argparse.Namespace) -> int:
+    from tsfm_rc.data.panel import fetch_all
+
+    cfg = load_config(args.config)
+    status = fetch_all(cfg)
+    failed = [t for t, s in status.items() if s.startswith("FAILED")]
+    for t, s in status.items():
+        print(f"{t:6s} {s}")
+    if failed:
+        print(
+            f"\n{len(failed)} ticker(s) failed. If every ticker failed, you are probably offline or "
+            "Yahoo is blocking requests: try again later, or put Yahoo-format CSVs in a folder and use "
+            "`provider: csv` with `csv_dir:` in the config (see docs/DECISIONS.md)."
+        )
+    return 1 if failed else 0
+
+
+def stage_data(cfg, *, allow_fetch: bool):
+    """Load (and optionally fetch) the cleaned panel; write the cleaning report."""
+    from tsfm_rc.data.panel import load_panel
+
+    panel = load_panel(cfg, allow_fetch=allow_fetch)
+    out = cfg.run_dir
+    out.mkdir(parents=True, exist_ok=True)
+    panel.cleaning.to_frame().to_csv(out / "cleaning_report.csv", index=False)
+    print(
+        f"[data] {len(panel.tickers)} tickers loaded from {panel.source}; "
+        f"{len(panel.unavailable)} unavailable; {len(panel.cleaning.rows)} cleaning events; "
+        f"raw_hash={panel.raw_hash[:12]} panel_hash={panel.panel_hash[:12]}"
+    )
+    return panel
+
+
 def _cmd_all(args: argparse.Namespace) -> int:
     """Run every pipeline stage implemented so far for one config."""
     cfg = load_config(args.config)
     print(f"[validate] {args.config}: OK (config_hash={config_hash(cfg)[:16]})")
-    # Later builds append stages here (fetch/load data, forecast, evaluate, report, dashboard).
+    panel = stage_data(cfg, allow_fetch=args.fetch)
+    if not panel.tickers:
+        print("[data] no data available; stopping. Run `make fetch-data` (needs network).")
+        return 1
+    # Later builds append stages here (forecast, evaluate, report, dashboard).
     return 0
 
 
@@ -38,6 +85,13 @@ def build_parser() -> argparse.ArgumentParser:
     v = sub.add_parser("validate", help="validate one or more YAML configs")
     v.add_argument("configs", nargs="+")
     v.set_defaults(func=_cmd_validate)
+
+    fx = sub.add_parser("fixtures", help="regenerate the committed synthetic fixtures")
+    fx.set_defaults(func=_cmd_fixtures)
+
+    f = sub.add_parser("fetch", help="download raw data for a config into the immutable cache")
+    f.add_argument("config")
+    f.set_defaults(func=_cmd_fetch)
 
     a = sub.add_parser("all", help="run every implemented stage for a config")
     a.add_argument("config")

@@ -1,0 +1,138 @@
+{
+  "generator": "tsfm_rc.data.synthetic.make_fixture_panel",
+  "seed": 20260927,
+  "start": "2010-01-04",
+  "end": "2026-06-30",
+  "intraday_steps": 390,
+  "specs": {
+    "SYN_GARCH_A": {
+      "variance": {
+        "type": "GarchSpec",
+        "omega": 0.02,
+        "alpha": 0.08,
+        "beta": 0.9,
+        "mu": 0.04
+      },
+      "volume": {
+        "level": 17.5,
+        "phi_fast": 0.6,
+        "phi_slow": 0.98,
+        "sd_fast": 0.2,
+        "sd_slow": 0.03,
+        "sd_noise": 0.15,
+        "dow": [
+          0.04,
+          0.0,
+          -0.01,
+          0.0,
+          0.05
+        ]
+      }
+    },
+    "SYN_GARCH_B": {
+      "variance": {
+        "type": "GarchSpec",
+        "omega": 0.06,
+        "alpha": 0.05,
+        "beta": 0.93,
+        "mu": 0.05
+      },
+      "volume": {
+        "level": 16.2,
+        "phi_fast": 0.5,
+        "phi_slow": 0.98,
+        "sd_fast": 0.2,
+        "sd_slow": 0.03,
+        "sd_noise": 0.15,
+        "dow": [
+          0.04,
+          0.0,
+          -0.01,
+          0.0,
+          0.05
+        ]
+      }
+    },
+    "SYN_HAR_A": {
+      "variance": {
+        "type": "HarSpec",
+        "c": 0.1,
+        "b_d": 0.35,
+        "b_w": 0.35,
+        "b_m": 0.2,
+        "shock_sd": 0.5,
+        "mu": 0.03
+      },
+      "volume": {
+        "level": 15.8,
+        "phi_fast": 0.6,
+        "phi_slow": 0.98,
+        "sd_fast": 0.2,
+        "sd_slow": 0.03,
+        "sd_noise": 0.15,
+        "dow": [
+          0.04,
+          0.0,
+          -0.01,
+          0.0,
+          0.05
+        ]
+      }
+    },
+    "SYN_HAR_B": {
+      "variance": {
+        "type": "HarSpec",
+        "c": 0.24,
+        "b_d": 0.25,
+        "b_w": 0.4,
+        "b_m": 0.27,
+        "shock_sd": 0.6,
+        "mu": 0.02
+      },
+      "volume": {
+        "level": 15.1,
+        "phi_fast": 0.6,
+        "phi_slow": 0.99,
+        "sd_fast": 0.2,
+        "sd_slow": 0.03,
+        "sd_noise": 0.15,
+        "dow": [
+          0.04,
+          0.0,
+          -0.01,
+          0.0,
+          0.05
+        ]
+      }
+    },
+    "SYN_QUIRKS": {
+      "variance": {
+        "type": "GarchSpec",
+        "omega": 0.03,
+        "alpha": 0.1,
+        "beta": 0.87,
+        "mu": 0.03
+      },
+      "volume": {
+        "level": 14.9,
+        "phi_fast": 0.6,
+        "phi_slow": 0.98,
+        "sd_fast": 0.2,
+        "sd_slow": 0.03,
+        "sd_noise": 0.15,
+        "dow": [
+          0.04,
+          0.0,
+          -0.01,
+          0.0,
+          0.05
+        ]
+      }
+    }
+  },
+  "files": {
+    "synthetic_ohlcv.csv": "0e558a5442fe60bcd11ddbc3223941af159b648ce22214a01c8ebe1937eb8f4e",
+    "synthetic_latent.csv": "ac86ace559728e72440c665d3f6eb28e7ab512bbc7aa9d084597e264caa275fb"
+  },
+  "note": "SYNTHETIC DATA. Not market data. SYN_QUIRKS has deliberate data errors and dividends."
+}

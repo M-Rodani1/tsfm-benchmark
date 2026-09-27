@@ -1,0 +1,9 @@
+ticker,date,issue,action,detail
+SYN_QUIRKS,2013-03-13,zero_volume,volume_set_missing,
+SYN_QUIRKS,2013-08-02,ohlc_violation,repaired_high_low,"before: open=135.828, high=136.999, low=134.903, close=137.136, volume=3.87344e+06"
+SYN_QUIRKS,2013-12-27,missing_day,flagged_only,absent vs union calendar
+SYN_QUIRKS,2013-12-27,stale_row,dropped,"open=164.451, high=164.451, low=164.451, close=164.451, volume=0"
+SYN_QUIRKS,2014-10-14,missing_day,flagged_only,absent vs union calendar
+SYN_QUIRKS,2015-03-11,duplicate_date,dropped_earlier_copy,
+SYN_QUIRKS,2015-08-01,weekend_row,dropped,
+SYN_QUIRKS,2015-12-24,suspect_split,flagged_only,log return -0.516

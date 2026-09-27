@@ -84,4 +84,4 @@ ignore = ["E501", "B008"]
 [tool.ruff.lint.per-file-ignores]
 # Lessons are teaching notebooks: `;` suppresses plot output, solution.py files are
 # cell snippets that run inside the notebook namespace (so names like `np` exist).
-"lessons/**" = ["E402", "F401", "F841", "E702", "E703", "I001", "F821", "B018"]
+"lessons/**" = ["E402", "F401", "F841", "E702", "E703", "I001", "F821", "B018", "E741"]
