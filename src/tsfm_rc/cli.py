@@ -65,6 +65,32 @@ def stage_data(cfg, *, allow_fetch: bool):
     return panel
 
 
+def run_provenance(cfg, panel, **extra):
+    from tsfm_rc.provenance import provenance_record
+
+    return provenance_record(
+        config_hash=config_hash(cfg),
+        data_hash=panel.panel_hash,
+        extra={"raw_hash": panel.raw_hash, "data_source": panel.source, "config_name": cfg.name, **extra},
+    )
+
+
+def stage_baselines(cfg, panel):
+    """Walk-forward forecasts for every baseline -> forecasts_baselines.parquet."""
+    import time
+
+    from tsfm_rc.engine.walkforward import run_baselines
+    from tsfm_rc.provenance import write_parquet_with_provenance
+
+    t0 = time.time()
+    fc = run_baselines(panel.daily, panel.calendar, cfg)
+    secs = time.time() - t0
+    path = cfg.run_dir / "forecasts_baselines.parquet"
+    write_parquet_with_provenance(fc, path, run_provenance(cfg, panel, stage="baselines", seconds=round(secs, 1)))
+    print(f"[baselines] {len(fc):,} forecast rows in {secs:.0f}s -> {path}")
+    return fc
+
+
 def _cmd_all(args: argparse.Namespace) -> int:
     """Run every pipeline stage implemented so far for one config."""
     cfg = load_config(args.config)
@@ -73,7 +99,8 @@ def _cmd_all(args: argparse.Namespace) -> int:
     if not panel.tickers:
         print("[data] no data available; stopping. Run `make fetch-data` (needs network).")
         return 1
-    # Later builds append stages here (forecast, evaluate, report, dashboard).
+    stage_baselines(cfg, panel)
+    # Later builds append stages here (TSFMs, evaluate, report, dashboard).
     return 0
 
 

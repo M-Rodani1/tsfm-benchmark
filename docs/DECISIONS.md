@@ -183,3 +183,36 @@ A zero high–low range makes GK undefined (logged as `zero_range`); zero volume
 day becomes missing (`zero_volume`). Targets that include such a day are missing and are
 dropped from evaluation (counted in the report), never imputed. Model *inputs* forward-fill
 the last valid value (a causal operation), because every model needs a complete context.
+
+### D-024 — LightGBM through its native API (Build 03)
+`lightgbm.LGBMRegressor` requires scikit-learn, which nothing else needs. The native
+`lightgbm.train` API is used with the pre-registered hyper-parameters mapped one-to-one
+(`min_child_samples → min_data_in_leaf`, `subsample → bagging_fraction`, etc.), single
+thread, `deterministic=True`.
+
+### D-025 — Parallelism and floating-point reproducibility (Build 03)
+Tasks (asset × target × window) run in separate processes started with `spawn` (forking a
+process after LightGBM's OpenMP threads exist can deadlock; this happened during the build)
+and with one BLAS/OpenMP thread per worker (otherwise four workers × all-core BLAS threads
+made the smoke run 4× slower). Every task derives its own seed from the run seed and its
+keys, so results do not depend on scheduling. Results are reproducible to floating-point
+tolerance, not necessarily bit-for-bit, across machines, BLAS builds and thread counts
+(summation order changes the last digits); the tests compare with `rtol = 1e-5`.
+
+### D-026 — Engine rules for individual assets (Build 03)
+One origin schedule is built on the union trading calendar. For each asset an origin is
+skipped if the asset has fewer than `min_train_obs` rows up to it, or if its last row is more
+than 10 calendar days old (not trading yet / halted). The re-fit counter counts *usable*
+origins for that asset. The realised target is looked up at the asset's last row ≤ t.
+
+### D-027 — GARCH optimiser failures (Build 03)
+If `arch` does not converge (non-zero convergence flag or non-finite parameters) the previous
+parameters are kept. If there are none yet, that origin's forecast falls back to EWMA and the
+row is flagged `fallback=ewma`. Flags are counted in the report. None occurred in the smoke run.
+
+### D-028 — HAR details (Build 03)
+HAR is the original levels specification (Corsi 2009) estimated by OLS, one direct regression
+per horizon, with the forecast floored at 1% of the window's mean GK variance (a level-HAR can
+go negative). Log-HAR or WLS would be reasonable alternatives but were not pre-registered.
+The seasonal-naive volume model maps future steps to weekdays with a business-day offset,
+ignoring holidays (a small approximation affecting a few steps per year).

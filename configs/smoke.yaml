@@ -6,7 +6,7 @@ description: >
   Pipeline check on committed synthetic OHLCV fixtures (data/fixtures). Same design as the
   default study but short test period, larger stride and fewer bootstrap replications.
 seed: 20260927
-n_jobs: 1
+n_jobs: 4
 
 data:
   provider: fixture
