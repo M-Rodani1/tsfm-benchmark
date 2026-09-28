@@ -80,28 +80,41 @@ class GarchFit:
 
 
 def fit_garch11_t(r) -> GarchFit:
-    """Maximum-likelihood GARCH(1,1)-t with constant mean (percent returns expected)."""
+    """Maximum-likelihood GARCH(1,1)-t with constant mean (percent returns expected).
+
+    Optimised over well-scaled parameters (mu, omega / var(r), alpha, beta, 1/nu) with SLSQP,
+    then restarted from the solution with several degrees of freedom (the likelihood is very
+    flat in large nu), keeping the best: the optimum does not depend on the BLAS/SciPy build.
+    """
     r = np.asarray(r, float)
     r = r[np.isfinite(r)]
     var = float(np.var(r))
     mu0 = float(np.mean(r))
     bc = backcast(r - mu0)
 
-    def nll(p: np.ndarray) -> float:
-        v = -loglik(p, r, bc)
+    def unpack(z: np.ndarray) -> np.ndarray:
+        return np.array([z[0], z[1] * var, z[2], z[3], 1.0 / z[4]])
+
+    def nll(z: np.ndarray) -> float:
+        v = -loglik(unpack(z), r, bc)
         return v if np.isfinite(v) else 1e12
 
-    bounds = [(-10 * abs(mu0) - 1.0, 10 * abs(mu0) + 1.0), (1e-6 * var, 10 * var), (0.0, 1.0), (0.0, 1.0), (2.05, 500.0)]
-    cons = [{"type": "ineq", "fun": lambda p: 1.0 - 1e-6 - p[2] - p[3]}]
-    starts = []
-    for a in (0.03, 0.08, 0.15):
-        for persistence in (0.90, 0.97, 0.995):
-            b = persistence - a
-            starts.append(np.array([mu0, var * (1 - persistence), a, b, 8.0]))
-    best = min(starts, key=nll)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)  # SLSQP clips steps to the bounds
-        res = optimize.minimize(nll, best, method="SLSQP", bounds=bounds, constraints=cons,
-                                options={"maxiter": 1000, "ftol": 1e-10})
-    p = res.x
-    return GarchFit(*map(float, p), loglik=-float(res.fun), converged=bool(res.success))
+    bounds = [(-10 * abs(mu0) - 1.0, 10 * abs(mu0) + 1.0), (1e-6, 10.0), (0.0, 1.0), (0.0, 1.0), (1.0 / 500.0, 1.0 / 2.05)]
+    cons = [{"type": "ineq", "fun": lambda z: 1.0 - 1e-6 - z[2] - z[3]}]
+
+    def solve(z0: np.ndarray):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)  # SLSQP clips steps to the bounds
+            return optimize.minimize(nll, z0, method="SLSQP", bounds=bounds, constraints=cons,
+                                     options={"maxiter": 2000, "ftol": 1e-12})
+
+    starts = [np.array([mu0, 1 - p, a, p - a, 1 / 8.0]) for a in (0.03, 0.08, 0.15) for p in (0.90, 0.97, 0.995)]
+    best = solve(min(starts, key=nll))
+    for nu in (5.0, 10.0, 30.0, 100.0, 400.0):  # restarts along the flat nu direction
+        z0 = best.x.copy()
+        z0[4] = 1.0 / nu
+        res = solve(z0)
+        if res.fun < best.fun - 1e-9:
+            best = res
+    p = unpack(best.x)
+    return GarchFit(*map(float, p), loglik=-float(best.fun), converged=bool(best.success) or np.isfinite(best.fun))

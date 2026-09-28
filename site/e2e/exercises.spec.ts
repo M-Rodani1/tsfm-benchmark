@@ -23,7 +23,8 @@ test.afterAll(async () => page?.close());
 async function openCheckpoint(lessonId: string) {
   await page.getByRole("link", { name: "Lessons", exact: true }).click();
   await page.getByTestId(`lesson-${lessonId}`).click();
-  if (await page.getByTestId("override").isVisible()) await page.getByTestId("override").click();
+  await page.locator("[data-testid=step], [data-testid=prereq-lock]").first().waitFor();
+  if (await page.getByTestId("prereq-lock").count()) await page.getByTestId("override").click();
   const lesson = content.lessons.find((l) => l.id === lessonId)!;
   await page.getByRole("button", { name: lesson.steps[lesson.steps.length - 1].title }).click();
   await expect(page.getByTestId("checkpoint")).toBeVisible();
