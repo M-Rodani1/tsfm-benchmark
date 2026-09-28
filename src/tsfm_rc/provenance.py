@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import platform
 import subprocess
 import sys
@@ -87,6 +88,8 @@ def provenance_record(
         "packages": package_versions(),
         "python": sys.version.split()[0],
         "platform": platform.platform(),
+        # OpenBLAS kernel family (pinned by the CLI on x86-64, DECISIONS D-054); "auto" = chosen by the CPU
+        "openblas_coretype": os.environ.get("OPENBLAS_CORETYPE") or "auto",
         "created_utc": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         "argv": sys.argv,
     }

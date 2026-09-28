@@ -121,6 +121,25 @@ def test_dm_flags_degenerate_inputs():
     assert dm_test(np.array([1.0, 2.0])).flag == "too_few_obs"
 
 
+def test_dm_reports_dropped_nonfinite_values():
+    """Dropping NaN/inf joins the series across the gap; the count must be visible."""
+    rng = np.random.default_rng(12)
+    d = rng.standard_normal(120) + 0.2
+    clean = dm_test(d)
+    assert "dropped_nonfinite" not in clean.flag
+    gappy = d.copy()
+    gappy[[5, 6, 50]] = np.nan
+    gappy[80] = np.inf
+    r = dm_test(gappy)
+    assert r.flag == "dropped_nonfinite=4" and r.T == 116
+    assert r.mean_diff == pytest.approx(np.delete(d, [5, 6, 50, 80]).mean())
+    assert dm_test(gappy, method="kv_b1").flag == "dropped_nonfinite=4"
+    # combined with another flag
+    z = np.r_[np.zeros(40), np.nan]
+    assert dm_test(z).flag == "zero_variance;dropped_nonfinite=1"
+    assert dm_test(np.array([1.0, np.nan, np.nan])).flag == "too_few_obs;dropped_nonfinite=2"
+
+
 def _overlap_sums(rng, T, phi, h=20, stride=5):
     """Loss differentials of 20-day targets sampled every 5 days: sums of daily AR(1)
     contributions over overlapping windows (the study's h=20 design under H0)."""

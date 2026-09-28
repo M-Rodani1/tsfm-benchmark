@@ -397,6 +397,14 @@ def economic_table(L_rv: pd.DataFrame, daily: dict, cfg: RunConfig, periods: lis
 
 
 def synthetic_table(fc_syn: pd.DataFrame, cfg: RunConfig, kappa: float) -> pd.DataFrame:
+    """Synthetic control: every model's loss relative to the oracle (true conditional mean).
+
+    ``ratio_to_oracle`` = mean model loss / mean oracle loss. Its 95% stationary-bootstrap CI
+    (``ratio_to_oracle_lo``/``_hi``, Audit-01 fix 3) resamples origins of the per-origin
+    cross-sectional mean losses on paired (series, origin) rows, block length as in section 7.
+    The oracle is optimal only in expectation, so a ratio below 1 whose CI covers 1 is sampling
+    noise (``ratio_ci_covers_1``); the report words it that way.
+    """
     if fc_syn is None or fc_syn.empty:
         return pd.DataFrame()
     S = fc_syn[fc_syn["y_true"].notna()].copy()
@@ -419,6 +427,14 @@ def synthetic_table(fc_syn: pd.DataFrame, cfg: RunConfig, kappa: float) -> pd.Da
             if kind == "rv":
                 row["qlike_latent"] = M["qlike_latent"].mean()
                 row["ratio_to_oracle_latent"] = M["qlike_latent"].mean() / oracle["qlike_latent"].mean()
+            lo = hi = np.nan
+            if m != "oracle":
+                per = j[[loss, "oracle"]].groupby(level="origin").mean().dropna()
+                rng = np.random.default_rng(derive_seed(cfg.seed, "synthetic_ratio", kind, h, m))
+                _, lo, hi = ratio_ci(per[loss].to_numpy(), per["oracle"].to_numpy(), cfg.stats.n_bootstrap,
+                                     block_length(len(per), h_eff), rng)
+            row["ratio_to_oracle_lo"], row["ratio_to_oracle_hi"] = lo, hi
+            row["ratio_ci_covers_1"] = bool(np.isfinite(lo) and lo <= 1.0 <= hi)
             rows.append(row)
     return pd.DataFrame(rows)
 

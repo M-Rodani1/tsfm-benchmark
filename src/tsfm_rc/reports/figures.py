@@ -140,12 +140,16 @@ def synthetic_ratio(syn: pd.DataFrame, out_dir: Path) -> list[str]:
     fig, ax = plt.subplots(figsize=(7.5, 0.8 + 0.2 * len(S)))
     y = np.arange(len(S))[::-1]
     for yi, r in zip(y, S.itertuples(index=False), strict=True):
-        ax.plot([1.0, r.ratio_to_oracle], [yi, yi], color=style.AXIS, lw=1)
+        lo, hi = getattr(r, "ratio_to_oracle_lo", np.nan), getattr(r, "ratio_to_oracle_hi", np.nan)
+        if np.isfinite(lo) and np.isfinite(hi):  # 95% bootstrap CI (Audit-01 fix 3)
+            ax.plot([lo, hi], [yi, yi], color=style.ROLE[style.role_of(r.model)], lw=2, solid_capstyle="round", alpha=0.45)
+        else:
+            ax.plot([1.0, r.ratio_to_oracle], [yi, yi], color=style.AXIS, lw=1)
         ax.plot([r.ratio_to_oracle], [yi], "o", color=style.ROLE[style.role_of(r.model)], ms=6)
     ax.axvline(1.0, color=style.ROLE["oracle"], lw=1.5, ls="--", label="oracle (= 1)")
     ax.set_yticks(y, [f"{r.target} h={r.horizon} · {r.model}" for r in S.itertuples()], fontsize=7)
     ax.xaxis.set_major_formatter(FormatStrFormatter("%.2f"))
-    ax.set_title("Synthetic control: mean primary loss relative to the oracle (1 = optimal)", loc="left", fontsize=9)
+    ax.set_title("Synthetic control: mean primary loss relative to the oracle, with 95% CI (1 = optimal)", loc="left", fontsize=9)
     ax.grid(axis="y", visible=False)
     ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0))
     fig.tight_layout()

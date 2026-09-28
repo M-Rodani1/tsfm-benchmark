@@ -105,11 +105,24 @@ def dm_test(
     ``method="hln"`` (default): DM-HLN with the A2 kernel/lag rule; ``kernel``/``lag`` may be
     passed explicitly only to reproduce other conventions (e.g. R's ``dm.test``: rectangular,
     lag h-1). ``method="kv_b1"``: Kiefer-Vogelsang fixed-b test, bandwidth T (amendment A4).
+
+    Non-finite values are dropped before the autocovariances are computed, which joins the
+    observations on either side of a gap as if they were adjacent. This is never silent: the
+    number dropped is reported in ``flag`` as ``dropped_nonfinite=N`` (Audit-01 fix 3). The
+    study's own callers pass gap-free series (pairs are aligned on origins first).
     """
     if method not in ("hln", "kv_b1"):
         raise ValueError(f"unknown DM method {method!r}")
     d = np.asarray(d, float)
-    d = d[np.isfinite(d)]
+    finite = np.isfinite(d)
+    n_dropped = int((~finite).sum())
+    r = _dm_finite(d[finite], h_eff=h_eff, lag=lag, kernel=kernel, hln=hln, method=method)
+    if n_dropped:
+        r.flag = ";".join(f for f in (r.flag, f"dropped_nonfinite={n_dropped}") if f)
+    return r
+
+
+def _dm_finite(d: np.ndarray, *, h_eff: int, lag: int | None, kernel: str | None, hln: bool, method: str) -> DMResult:
     T = len(d)
     if T < 3:
         return DMResult(np.nan, np.nan, float(np.mean(d)) if T else np.nan, np.nan, T, 0, h_eff, "too_few_obs", method)

@@ -198,6 +198,8 @@ made the smoke run 4× slower). Every task derives its own seed from the run see
 keys, so results do not depend on scheduling. Results are reproducible to floating-point
 tolerance, not necessarily bit-for-bit, across machines, BLAS builds and thread counts
 (summation order changes the last digits); the tests compare with `rtol = 1e-5`.
+*Update (Audit-01, D-054):* on x86-64 the CLI now pins OpenBLAS's kernels, which makes the
+committed artifacts reproducible bit for bit on other x86-64 machines.
 
 ### D-026 — Engine rules for individual assets (Build 03)
 One origin schedule is built on the union trading calendar. For each asset an origin is
@@ -595,3 +597,65 @@ check), and the migrations on a real Postgres (PGlite) proving RLS on every tabl
 **Every lesson** (all cells, starter fails, solution passes) runs in real Pyodide. Those
 tests need jsDelivr; they are skipped only where it is unreachable (this build container)
 and required in CI.
+
+### D-052 — Non-finite loss differentials are counted, not silently dropped (Audit-01 fix 3)
+`dm_test` still drops NaN/inf values before computing autocovariances, which joins the
+observations on either side of a gap as if they were adjacent. It now appends
+`dropped_nonfinite=N` to `DMResult.flag`, combined with any other flag, e.g.
+`zero_variance;dropped_nonfinite=1`. The study's own callers align pairs on origins first,
+so their series have no gaps and no stored flag changed. A caller that passes a gappy series
+now sees it in every table that carries the flag. Tested in
+`tests/test_stats.py::test_dm_reports_dropped_nonfinite_values`.
+
+### D-053 — Oracle ratios in the synthetic control carry a bootstrap CI (Audit-01 fix 3)
+The synthetic-control table reported ratios like `hist_mean` 0.996× the oracle's loss
+without uncertainty, which invites reading "better than optimal". Each ratio now has a 95%
+stationary-bootstrap CI (`ratio_to_oracle_lo`/`_hi`). The CI resamples origins of the
+per-origin mean losses on paired (series, origin) rows, B = `stats.n_bootstrap`, with the
+block length of section 7, and `ratio_ci_covers_1` records whether it contains 1.
+
+The report words a ratio below 1 whose CI covers 1 as "below 1 only by sampling noise" (or
+"indistinguishable from the oracle" when it rounds to 1.000). The figure draws the CIs.
+Existing columns are unchanged.
+
+### D-054 — OpenBLAS kernels pinned for bit-for-bit reproducibility (Audit-01 fix 3)
+**What happened.** Regenerating the fixture artifacts for fix 3 on a new build host changed
+the secondary tables, although no forecasting code had changed. The fingerprint test of A4
+(D-042) failed.
+- *Cause.* The OpenBLAS libraries bundled with the NumPy and SciPy wheels (DYNAMIC_ARCH
+  builds) choose a CPU-specific kernel when they load. `arch`'s GARCH optimiser then stops at
+  slightly different points within its tolerance.
+- *Which kernel made the committed files.* Every committed artifact (Build 08 and fix 1) was
+  reproduced exactly with `OPENBLAS_CORETYPE=Prescott`, OpenBLAS's generic x86-64 kernel
+  (its fallback when it cannot use AVX). Every forecast table and every stored statistic
+  matched, cell by cell. The new host's AVX-512 kernel (and the Haswell, Sandy Bridge and Zen
+  kernels) did not.
+
+**Size of the effect,** on the smoke run, native AVX-512 kernel against the committed
+Prescott results, rows matched on their keys:
+- *Forecasts:* GARCH-family forecasts differ by up to 0.036 (at most 1.6% relative, median
+  6 × 10⁻⁶). Every other model differs by at most 3 × 10⁻¹³.
+- *DM tests:* p-values move by at most 0.011 and Holm p-values by at most 0.022. No 5%
+  decision changes.
+- *MCS:* one p-value moves from 0.255 to 1.000, because the best of two near-tied GARCH
+  variants swaps. No model enters or leaves a confidence set.
+
+**Decision.** `tsfm-rc` sets `OPENBLAS_CORETYPE=Prescott` on x86-64 before NumPy loads,
+unless the variable is already set (`src/tsfm_rc/cli.py`). Every `make` target and CI go
+through it.
+- *Recorded.* Provenance records the kernel (`openblas_coretype`).
+- *Tested.* `tests/test_utils.py::test_cli_pins_openblas_kernel_before_numpy_loads`.
+- *Cost.* Negligible: the pipeline's BLAS work is small least-squares problems. The
+  foundation models use PyTorch's own libraries, which are unaffected.
+
+**Scope.**
+- *Not a change to the study.* No model, statistic or pre-registered choice changes. The pin
+  only fixes which of several equally valid floating-point paths is taken.
+- *Other hardware.* On ARM machines (e.g. Apple Silicon) the variable is not set. Results
+  there agree with the committed ones only to the tolerance above.
+- *Other wheels.* Different NumPy/SciPy wheels can still differ; the versions are pinned in
+  `uv.lock`.
+
+**Consequence for the analysis.** Near-ties between GARCH variants (and their MCS p-values)
+are machine-sensitive at this level. A difference that small is not evidence either way.
+

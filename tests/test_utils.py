@@ -61,6 +61,36 @@ def test_parquet_provenance_roundtrip(tmp_path):
     pd.testing.assert_frame_equal(pd.read_parquet(p), df)
 
 
+def test_cli_pins_openblas_kernel_before_numpy_loads():
+    """D-054: `tsfm-rc` pins OpenBLAS's generic kernels on x86-64 (bit-for-bit reproducible
+    GARCH fits across CPUs) before NumPy is imported; an explicit choice is respected."""
+    import os
+    import platform
+    import subprocess
+    import sys
+
+    # record OPENBLAS_CORETYPE at the moment NumPy is first imported (when OpenBLAS loads)
+    code = (
+        "import os, sys\n"
+        "class Hook:\n"
+        "    def find_spec(self, name, path, target=None):\n"
+        "        if name == 'numpy' and not hasattr(sys, '_seen'):\n"
+        "            sys._seen = os.environ.get('OPENBLAS_CORETYPE')\n"
+        "sys.meta_path.insert(0, Hook())\n"
+        "import tsfm_rc.cli\n"
+        "print(sys._seen)\n"
+    )
+    env = {k: v for k, v in os.environ.items() if k != "OPENBLAS_CORETYPE"}
+    run = lambda e: subprocess.run([sys.executable, "-c", code], env=e, capture_output=True, text=True, check=True).stdout.strip()  # noqa: E731
+    x86 = platform.machine().lower() in ("x86_64", "amd64")
+    assert run(env) == ("Prescott" if x86 else "None")
+    assert run({**env, "OPENBLAS_CORETYPE": "Haswell"}) == "Haswell"
+    # imported as a library after NumPy: left alone (children would otherwise differ from the parent)
+    late = "import numpy, os, tsfm_rc.cli; print(os.environ.get('OPENBLAS_CORETYPE'))"
+    assert subprocess.run([sys.executable, "-c", late], env=env, capture_output=True, text=True, check=True).stdout.strip() == "None"
+    assert provenance_record(config_hash="c", data_hash="d")["openblas_coretype"] == os.environ.get("OPENBLAS_CORETYPE", "auto")
+
+
 def test_package_versions_marks_missing():
     v = package_versions(("numpy", "definitely-not-a-real-package-xyz"))
     assert v["definitely-not-a-real-package-xyz"] == "not-installed"
@@ -69,3 +99,22 @@ def test_package_versions_marks_missing():
 def test_cli_validate(capsys):
     assert main(["validate", "configs/smoke.yaml"]) == 0
     assert "config_hash=" in capsys.readouterr().out
+
+
+def test_pretraining_checklist_covers_every_unverified_tag():
+    """Every [S]/[M]/[UNVERIFIED] claim in docs/PRETRAINING-DATA.md is on the checklist at the top."""
+    import re
+
+    from tsfm_rc.paths import DOCS_DIR
+
+    text = (DOCS_DIR / "PRETRAINING-DATA.md").read_text(encoding="utf-8")
+    head, body = text.split("\n---\n", 1)
+    ids = set(re.findall(r"^\| \[[ x]\] \| ([A-Z]\d+) \|", head, flags=re.M))
+    assert len(ids) >= 14
+    rows = [ln for ln in body.splitlines() if ln.startswith("|") and re.search(r"\[(S|M|UNVERIFIED)\]", ln)
+            and not ln.startswith("| **[")]  # the tag legend itself
+    assert rows, "expected tagged table rows"
+    for ln in rows:
+        refs = set(re.findall(r"\(([CTM]\d+)(?:, ([CTM]\d+))?\)", ln.split("|")[1]))
+        flat = {r for pair in refs for r in pair if r}
+        assert flat and flat <= ids, f"unverified claim without a checklist entry: {ln[:90]}"
