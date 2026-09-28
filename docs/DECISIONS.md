@@ -438,3 +438,160 @@ test was chosen over storing copies of the tables because CI checks out a shallo
 without history. The same comparison was also done directly with
 `pandas.testing.assert_frame_equal` against the Build 08 files when the artifacts were
 regenerated (BUILD-REPORT §10).
+
+### D-043 — The website: a static SPA on Netlify (Audit-01 fix 2)
+**What.** `site/` is a Vite + React + TypeScript single-page app, deployed as static files
+(`netlify.toml`, `docs/DEPLOY.md`). Pages: Home ("Continue"), Lessons, Results, Review, Notes
+& log, Research status, Progress & sync.
+**Why.**
+- *No server of our own.* The site needs no server: Python runs in the browser and progress
+  goes to Supabase directly under row-level security.
+- *Notebooks and dashboard kept.* The Jupyter track and `reports/dashboard/index.html`
+  remain as offline alternatives.
+- *Plain React.* No component framework: a small audited dependency set (React, React
+  Router, supabase-js, idb, markdown-it; Pyodide is loaded at runtime).
+
+### D-044 — Python in the browser: Pyodide, checked at build time (Audit-01 fix 2)
+**Loading.** Pyodide 314.0.7 (Python 3.14) runs in a Web Worker so the page never freezes.
+- *Self-hosted core, CDN packages.* The core runtime is served from the site
+  (`/pyodide/v314.0.7/`, copied from the pinned npm package). The scientific packages come
+  from the matching jsDelivr path (`packageBaseUrl`), integrity-checked against the lock file.
+  The site loads NumPy, pandas, SciPy, matplotlib, pydantic, PyYAML and micropip.
+
+**Build-time check** (`site/scripts/pyodide.mjs`). Each of those packages must be in that
+release's `pyodide-lock.json`. Every import in lesson code, starters, solutions and checkers
+must resolve to Pyodide's own standard library (read from `python_stdlib.zip`), a locked
+package, `tsfm_rc` or `checker`. Otherwise the build fails.
+
+**The package.** A pure-Python wheel of `tsfm_rc` is built from `src/` at build time (no
+dependencies declared) and installed with `micropip`. Heavy imports (`arch`, `lightgbm`,
+`torch`, Hugging Face) were already lazy.
+
+**Where the browser lacks something:**
+- *GARCH fitting (lesson 04)* uses `tsfm_rc.models.garch_np`, a NumPy/SciPy re-implementation
+  of the `arch` estimator. `tests/test_garch_np.py` shows the same variance path and
+  likelihood (to 1e-10) and the same fitted parameters on every fixture.
+- *Stored results (lessons 00, 09, 10)* are read through `tsfm_rc.learn.stats_table`: the
+  Parquet file locally, the published JSON in the browser (exact floats; `tests/test_publish.py`).
+- *Foundation models (lesson 05)* cannot run in a browser; the lesson says so and points to
+  the Results page.
+- *The GK simulation (lesson 02)* uses fewer paths and steps, stated on the page.
+
+**Verification.**
+- *Locally and in CI:* every lesson runs in a browser-like CPython sandbox (only the mounted
+  files; `arch`/`lightgbm`/`pyarrow`/`torch` blocked).
+- *In CI:* every lesson also runs under Python 3.14 with Pyodide's exact package versions, and
+  in real Chromium with Pyodide (Playwright; `REQUIRE_PYODIDE=1`).
+
+### D-045 — One source for the lessons (Audit-01 fix 2)
+**Format.** The 11 lessons live in `site/content/lessons/` as Markdown with a small block
+syntax (`python`, `predict`, `checkpoint`), plus YAML and Python files for hints, checkers,
+solutions, flashcards and error explanations (`site/content/README.md`).
+
+**Generated notebooks.** `lessons/` (notebooks, `lesson.py`, READMEs, checkers, flashcards) is
+generated from them by `make lessons`; the tests fail if it is stale.
+
+**Why one source.** Two hand-maintained copies would drift, and an auditor can edit one place.
+
+**Rules enforced by both parsers:**
+- a step is at most 150 words of prose between interactive elements, and has something to do;
+- 5–10 flashcards and 2–4 tiered hints per lesson;
+- a 45–90 minute estimate, and valid prerequisites and `next` links.
+
+### D-046 — Progress storage: local-first, Supabase for one user (Audit-01 fix 2)
+**Local first.** Every change goes to IndexedDB immediately (`site/src/lib/db.ts`) and is
+synced to Supabase when configured and signed in. The site works offline and with no
+Supabase at all (local-only banner).
+
+**Tables** (`site/supabase/migrations/`), all with row-level security:
+lesson/step progress (including the last position), exercise attempts (code, pass/fail,
+hints, solution viewed, time), drafts, notes, flashcard states, review history and the
+session log.
+
+**Access.**
+- *Single user.* Magic-link email login; sign-ups disabled after the first login
+  (`docs/DEPLOY.md`), with an optional `VITE_ALLOWED_EMAIL` check in the form.
+- *Keys.* Only the public anon key is ever in the frontend, and the build refuses a secret
+  key.
+- *Backup.* Export/import of everything as one JSON file.
+
+### D-047 — Sync conflict rule: last-write-wins per record (Audit-01 fix 2)
+**Rule.** Each record carries the client time of its last change (`updated_at`). The newer
+record wins.
+- *Server side:* the trigger `tsfm_lww()` ignores an update older than the stored row, so a
+  stale device cannot overwrite a newer change.
+- *Pull:* the client pulls rows changed since its cursor (`server_updated_at`, with a 5 s
+  overlap) and keeps a newer dirty local copy.
+- *Append-only tables* (attempts, review history) have unique ids and never conflict.
+- *Deletions* are tombstones.
+
+**Limitation.** Two devices editing the *same* record offline keep only the later edit; for
+flashcards the full review history is still kept, only the card state is last-write-wins.
+Clock skew between devices can reorder near-simultaneous edits. Both are acceptable for one
+learner.
+
+**Tests.** `site/tests/sync.test.ts` (two simulated devices) and `site/tests/rls.test.ts`
+(the trigger on real Postgres).
+
+### D-048 — Spaced repetition: SM-2 (Audit-01 fix 2)
+**Choice.** SM-2 (Wozniak 1990) rather than FSRS. It is about 40 auditable lines, is
+deterministic, and needs no parameters fitted to a long review history, which one learner
+with ~80 cards will not have. Its behaviour is easy to explain: correct answers stretch the
+interval by the ease factor, lapses reset it.
+
+**Buttons.** Again / Hard / Good / Easy map to quality 1 / 3 / 4 / 5.
+
+**Cards.** A lesson's cards join the queue (due the same day) when every step of the lesson
+is done. The Anki CSV export remains as a secondary option.
+
+**Tests.** `site/tests/srs.test.ts` checks the 1, 6, ⌈6·EF⌉ sequence, the ease formula and
+floor, and lapses.
+
+### D-049 — Publishing results to the site (Audit-01 fix 2)
+**Command.** `make publish-results` (`src/tsfm_rc/pipeline/publish.py`) exports each run's
+stored statistics to `site/public/data/results/<run>/<version>/`:
+- the dashboard payload, reusing `reports/dashboard.py`'s selection;
+- the lesson tables, with exact round-trip floats;
+- a copy of `RESULTS.md`;
+- an index with provenance (config hash, data hash, commit), model status, a history, and a
+  `SYNTHETIC — not research results` label for fixture runs.
+
+**Versions.** The version is a content hash, so republishing unchanged results changes
+nothing.
+
+**What is never published.** Row-level forecasts, losses and raw prices; the site computes
+no statistics.
+
+**Home-page task.** Until a real-data run is published, the home page shows the pending
+terminal task (`make reproduce`, then `make publish-results` and push). The task is
+generated from the published index at build time (`site/scripts/status.mjs`).
+
+### D-050 — Offline support and security headers (Audit-01 fix 2)
+**Offline.** A small service worker (`site/public/sw.js`) caches the app shell. It caches
+versioned files cache-first (build assets, Pyodide core and packages, the wheel, published
+result versions) and fetches everything else network-first. After one visit the site, and
+then Python, work offline.
+
+**Headers.** `netlify.toml` sets a strict Content-Security-Policy: scripts only from the site
+plus `wasm-unsafe-eval`, and connections only to the site, Supabase and the Pyodide CDN. It
+also sets HSTS, `nosniff`, `X-Frame-Options: DENY`, a restrictive Permissions-Policy and
+COOP. `vite preview` reads the same headers, so every browser test runs under the production
+policy.
+
+### D-051 — How the site is tested (Audit-01 fix 2)
+**Unit tests** (Vitest): the scheduler, the sync logic, the IndexedDB store with
+export/import, lesson progress, prediction checking and error explanations, the build
+scripts (content rules, status parsing, headers, secret-key guard, wheel, Pyodide import
+check), and the migrations on a real Postgres (PGlite) proving RLS on every table.
+
+**Browser tests** (Playwright, production build, production headers):
+- completing a step;
+- a failing then passing exercise with hints;
+- progress surviving a reload, and autosave surviving a closed tab;
+- reviewing due flashcards;
+- export then import;
+- the Results page, prerequisite overrides, and offline use.
+
+**Every lesson** (all cells, starter fails, solution passes) runs in real Pyodide. Those
+tests need jsDelivr; they are skipped only where it is unreachable (this build container)
+and required in CI.

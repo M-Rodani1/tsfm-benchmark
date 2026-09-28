@@ -106,3 +106,8 @@
   match: "^(RecursionError|MemoryError)"
   why: "The computation grew too large for the browser (or a function calls itself forever)."
   fix: "Check loop bounds; use smaller arrays. Press *Restart Python* if the page stops responding."
+
+- see: "PythonUnavailable: Could not download the Python packages …"
+  match: "^PythonUnavailable"
+  why: "Python could not start in this browser. Its scientific packages come from cdn.jsdelivr.net on the first visit (then they are cached)."
+  fix: "Check the internet connection and any content blocker, then press **Restart Python** and run the cell again."

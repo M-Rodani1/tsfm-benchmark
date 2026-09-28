@@ -51,3 +51,60 @@ jobs:
             results/smoke/
             reports/
           if-no-files-found: ignore
+
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install locked site dependencies
+        run: npm ci
+
+      - name: Build-time checks (content rules, Pyodide packages and imports, wheel, status)
+        run: node scripts/prebuild.mjs
+
+      - name: Lint (ESLint + TypeScript)
+        run: npm run lint
+
+      - name: Unit tests (scheduler, sync, store, checkers, build scripts, RLS on Postgres)
+        run: npm test
+
+      - name: Lessons under Pyodide's exact package versions (CPython 3.14)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Run every lesson with Pyodide's package versions
+        working-directory: .
+        run: |
+          python -m pip install --quiet $(python -c "import json; v=json.load(open('site/src/generated/runtime.json'))['pyodide']['lockedVersions']; print(' '.join(f'{k}=={x}' for k, x in v.items() if k != 'micropip'))")
+          PYTHONPATH=src python lessons/_tools/check_all.py
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests (every lesson in real Pyodide, progress, review, export/import, results)
+        env:
+          REQUIRE_PYODIDE: "1"
+          CI: "1"
+        run: npm run e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            site/playwright-report/
+            site/test-results/
+          if-no-files-found: ignore

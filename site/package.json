@@ -1,0 +1,55 @@
+{
+  "name": "tsfm-reality-check-site",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Learning and results website for TSFM Reality Check (static SPA; Pyodide lessons; Supabase progress sync).",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepare-site": "node scripts/prebuild.mjs",
+    "predev": "node scripts/prebuild.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/prebuild.mjs",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "lint": "eslint . && tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "pretest": "node scripts/prebuild.mjs",
+    "pree2e": "npm run build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "idb": "^8.0.3",
+    "markdown-it": "^15.0.2",
+    "pyodide": "314.0.7",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "1.56.1",
+    "@types/js-yaml": "^4.0.9",
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^22.20.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "fake-indexeddb": "^6.2.5",
+    "fflate": "^0.8.3",
+    "globals": "^17.12.0",
+    "js-yaml": "^5.4.2",
+    "jsdom": "^30.1.1",
+    "smol-toml": "^1.9.0",
+    "typescript": "~5.9.0",
+    "typescript-eslint": "^8.70.1",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}

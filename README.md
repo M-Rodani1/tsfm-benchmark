@@ -5,8 +5,9 @@ An honest, reproducible benchmark of pretrained **time-series foundation models*
 GJR-GARCH, HAR, EWMA, LightGBM, naive rules) on daily **returns**, **realised volatility** and
 **trading volume** of 26 US ETFs and large caps, with strict walk-forward evaluation,
 Diebold–Mariano tests with HAC variance, multiple-testing control, a Model Confidence Set,
-and an explicit **pretraining-contamination** test. Plus eleven lessons that teach you to run
-and read it yourself.
+and an explicit **pretraining-contamination** test. Plus a **website** with eleven lessons
+(Python runs in your browser), the results dashboard, spaced-repetition review and synced
+progress, so the terminal is only needed for the heavy experiments.
 
 > **Status of the numbers in this repository.** The environment this was built in could not
 > reach Yahoo Finance or Hugging Face. Every committed result is therefore computed on
@@ -14,7 +15,22 @@ and read it yourself.
 > Nothing here is a finding about real markets yet. Run `make reproduce` on your machine to
 > produce the real study (instructions below). See [`docs/BUILD-REPORT.md`](docs/BUILD-REPORT.md).
 
-## 10-minute quickstart
+## The website (learning + results)
+
+`site/` is the main way in: lessons in short steps with Python in the browser, the results
+dashboard, flashcard review, notes and a session log, and a research-status page that tells
+you when a terminal task is waiting. Deploy it with Netlify and Supabase by following
+[`docs/DEPLOY.md`](docs/DEPLOY.md), or run it locally:
+
+```bash
+cd site && npm ci && npm run dev      # http://localhost:5173 (Node 22)
+```
+
+After a real run, `make publish-results` exports the stored numbers to `site/public/data/`;
+commit and push, and the site shows them (fixture results are labelled
+"SYNTHETIC — not research results").
+
+## 10-minute quickstart (terminal)
 
 You need `git`, `make` and [uv](https://docs.astral.sh/uv/getting-started/installation/)
 (`curl -LsSf https://astral.sh/uv/install.sh | sh`). Everything else is installed by uv.
@@ -32,7 +48,7 @@ Then open:
 - `reports/RESULTS.md`: the auto-generated report (tables, figures, plain-English findings,
   what survives multiple-testing correction, limitations, provenance);
 - `reports/dashboard/index.html`: the interactive dashboard (double-click it; no server);
-- `lessons/README.md`: start the lesson track (`make install-all`, then `uv run jupyter lab`).
+- `lessons/README.md`: the same lessons as notebooks, offline (`make install-all`, then `uv run jupyter lab`).
 
 ## Running the real study
 
@@ -65,13 +81,15 @@ If Yahoo blocks you, put Yahoo-format CSVs in a folder and set `provider: csv` a
 | `tests/` | pytest suite, including leakage tests with negative controls |
 | `results/<run>/` | Stored forecasts and statistics (Parquet with provenance) |
 | `reports/` | `RESULTS.md`, figures and the dashboard, generated from `results/` |
-| `lessons/` | Eleven lessons with notebooks, checkers, flashcards; `PROGRESS.md` |
+| `site/` | The website: `content/` (lesson source), `src/` (app), `supabase/` (schema + RLS), tests |
+| `lessons/` | The same lessons as Jupyter notebooks, generated from `site/content` by `make lessons` |
+| `docs/DEPLOY.md` | Click-by-click deployment (Supabase, Netlify, DNS) |
 
 ## Make targets
 
 `make help` lists them all. The main ones: `install`, `install-tsfm`, `install-all`, `test`,
 `lint`, `doctor`, `smoke`, `fetch-data`, `reproduce`, `reproduce-fixtures`, `report`,
-`dashboard`, `flashcards`, `lessons`.
+`dashboard`, `flashcards`, `lessons`, `publish-results`, `site`, `site-test`.
 
 ## Principles
 
