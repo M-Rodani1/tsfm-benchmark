@@ -15,6 +15,15 @@ ever run with its real weights. Every committed number is computed on synthetic 
 and all three TSFMs are reported `UNAVAILABLE`. The research question is therefore **not yet
 answered**; running `make reproduce` on a normal internet connection is the next step.
 
+**Audit-01 (§10)** added:
+- *Amendment A4:* stride-1 primary tests in the clean windows, with a Kiefer–Vogelsang
+  fixed-b test chosen by simulation.
+- *The website* (`site/`): all 11 lessons run in the browser, results are published with
+  provenance, plus review, notes and synced progress. Every lesson is verified in real
+  Pyodide by CI.
+- *Small statistical corrections.*
+- *A fix that makes the committed artifacts reproducible bit for bit* on x86-64 machines.
+
 ## 1. What was built, build by build
 
 | Build | Commit | Contents |
@@ -40,7 +49,8 @@ All timings are from the build container (4 CPU cores, 15 GB RAM, no GPU).
 | `make smoke` (`configs/smoke.yaml`) | 4 synthetic fixture tickers, test period 2023-01 → 2026-06, stride 10 | UNAVAILABLE (HF blocked) | ≈ 40 s end to end |
 | `make reproduce-fixtures` (`configs/default_fixtures.yaml` = default design on 5 fixture tickers) | synthetic, test period 2015-01 → 2026-06, stride 5, both windows, B = 1000 | UNAVAILABLE | ≈ 3 min end to end (baselines 107 s, synthetic control 45 s, statistics ≈ 15 s) |
 | `make reproduce` (`configs/default.yaml`) | real Yahoo data | — | **not run**: Yahoo and Hugging Face blocked |
-| Test suite (`make test`) | fixtures + simulations | TSFM adapters with random weights | ≈ 2.5 min locally, ≈ 3 min in CI |
+| Test suite (`make test`) | fixtures + simulations | TSFM adapters with random weights | 302 tests: ≈ 4.3 min locally (with the TSFM extra), ≈ 3 min in CI (4 tests needing the TSFM extra skipped) |
+| Site tests (`site/`, Audit-01) | fixtures, published synthetic results | — | 45 Vitest tests (seconds); 20 Playwright tests, ≈ 1 min in CI including all 11 lessons in real Pyodide |
 
 **Amendment A4 (Audit-01) cost.** The primary family now uses stride-1 origins in the clean
 windows (a separate *primary pass*; see §10).
@@ -142,8 +152,10 @@ TimesFM 200M with flip-invariance doubles its forward passes; Moirai draws 100 s
   would pass through (flagged).
 
 **Reproducibility and provenance:**
-- Results are reproducible to floating-point tolerance, not bit-for-bit, across machines
-  (BLAS threads, summation order; D-025). Moirai's sampled forecasts depend on batch
+- Results are reproducible bit for bit on x86-64 machines with the locked wheels, because
+  `tsfm-rc` pins OpenBLAS's generic kernels (D-054, Audit-01). Elsewhere (e.g. ARM) they
+  agree to optimiser tolerance: GARCH-family forecasts on the fixtures moved by up to 0.036
+  between CPU kernels (D-054). Moirai's sampled forecasts depend on batch
   composition when the cache is partially filled (D-032).
 - Artifacts committed before Build 08 recorded the parent commit with `dirty: true`. The
   final artifacts are regenerated from the clean Build 08 tree (see §9).
@@ -201,6 +213,10 @@ Leakage: `src/tsfm_rc/origin.py`, `leakage.py`, `tests/test_leakage_harness.py`,
 Statistics vs references: `tests/test_stats.py` (statsmodels HAC, `dieboldmariano`,
 statsmodels Holm, `arch` MCS, CRPS closed form, Monte Carlo size).
 Traceability: `tests/test_reports.py`, `tests/test_dashboard.py`, `src/tsfm_rc/provenance.py`.
+A4: `tests/test_a4_primary.py`, `src/tsfm_rc/eval/fixedb.py`, `src/tsfm_rc/eval/size_study.py`.
+Website: `site/README.md`; security and data safety `site/tests/rls.test.ts`,
+`site/tests/sync.test.ts`, `site/tests/db.test.ts`, `site/tests/scripts.test.ts`,
+`netlify.toml`; browser `site/e2e/`.
 Design history: `docs/PREREGISTRATION.md` §11, `docs/DECISIONS.md`.
 
 ## 9. Build 08 commit and regenerated artifacts
@@ -219,3 +235,207 @@ Design history: `docs/PREREGISTRATION.md` §11, `docs/DECISIONS.md`.
   identical. Only the artifact SHA-256 values change, because the embedded provenance changed.
 - The follow-up commit ("Build 08 (artifacts)") contains only these regenerated
   `results/` and `reports/` files and this section.
+
+## 10. Audit-01 corrections
+
+Written 2026-09-28, after the Audit-01 correction prompt. Each fix was committed separately
+to `main`, by the repository owner's account, after the full local test suite passed. CI was
+red on two intermediate fix-2 commits (`a0b35fa`, `e9f517e`), and the next commits fixed
+what it found (§10.4). CI is green from `b24357e` on.
+
+### 10.1 Commits
+
+| Fix | Commit | What |
+|---|---|---|
+| 1 | `3a32639` | Amendment A4: stride-1 primary tests in the clean windows, size study, KV fixed-b test, separate primary pass, artifacts regenerated |
+| 2 (part 1) | `0fd6790` | Lessons moved to `site/content/` (single source; notebooks generated), `make publish-results`, browser-safe `tsfm_rc` (NumPy GARCH, `learn.stats_table`) |
+| 2 (part 2) | `a0b35fa` | The website `site/`, Supabase schema with RLS, `netlify.toml`, `docs/DEPLOY.md`, Vitest + Playwright, CI job `site` |
+| 2 (part 3) | `e9f517e` | Robust NumPy GARCH optimiser (CI found a 0.09 log-likelihood shortfall against `arch`); e2e waits for the lesson to render |
+| 2 (part 4) | `b24357e` | No lost writes when the page reloads right after an action (found by CI); lesson browser tests isolated and diagnosable |
+| 3 | `89b2306` | `dropped_nonfinite=N` flag, oracle-ratio bootstrap CIs and honest wording, PRETRAINING-DATA checklist, OpenBLAS kernel pinned (D-054) |
+| 3 (artifacts) | `e930b87` | `results/`, `reports/` and `site/public/data/results/` regenerated from the clean fix-3 tree |
+| finish | the commit adding this section | DEFINITION-OF-DONE (site criteria and A4), this section, browser notes on lessons 00 and 10 |
+
+### 10.2 Fix 1: amendment A4 and its simulation
+
+*What changed.* The 27 primary tests and the clean side of the contamination test now use
+every trading day inside each TSFM's clean window (stride 1). Everything else keeps stride 5,
+and the stride-1 forecasts are a separate pass with separate artifacts (D-041), so no
+secondary number moved. `tests/test_a4_primary.py` proves the latter cell by cell against
+the Build 08 artifacts. The same `h_eff`/lag rule now drives `dm_primary`, the contamination
+test and the `ratio_ci` block lengths (`h_eff = ceil(h / stride)`).
+
+*Simulation* (`src/tsfm_rc/eval/size_study.py`, 5,000 replications per cell, seed
+20260928; full 36-cell table in D-039). Grid: T ∈ {100, 250, 450}, h ∈ {1, 5, 20}, four
+null processes (AR(1) with φ = 0, 0.3, 0.6, and a GARCH squared-error differential).
+
+| test at stride 1 | worst-case \|size − 5%\| | mean \|size − 5%\| | size range |
+|---|---|---|---|
+| **Kiefer–Vogelsang fixed-b (Bartlett, bandwidth T), pre-registered** | **0.072** | **0.014** | 0.036–0.122 |
+| Bartlett, lag max(h − 1, NW) + fixed-b critical values | 0.109 | 0.050 | 0.045–0.159 |
+| Bartlett, lag max(h − 1, NW), HLN | 0.118 | 0.055 | 0.050–0.168 |
+| rectangular, lag h − 1, HLN (R's `dm.test`) | 0.281 | 0.053 | 0.046–0.331 |
+
+The KV variance is a sum of squares, so it cannot be negative. It is zero only for a
+constant series, and the test is then reported as p = NaN with the flag `zero_variance`,
+never replaced by another rule. The chosen test still over-rejects at T = 100, h = 20 (up
+to 12.2%). Every primary row therefore carries `sim_size_max`, the worst simulated size at
+the nearest simulated T not above its own. It costs power: at a mean shift where an ideal
+test has 80% power, it rejects 60–72% (D-039).
+
+*Inference cost* of the extra stride-1 origins: §2 (Chronos-Bolt +60%, TimesFM +32%,
+Moirai +74% forecast requests; baselines about +1 minute on the fixtures).
+
+### 10.3 Fix 2: the website
+
+A static Vite + React + TypeScript app in `site/`, built by Netlify. Its pages:
+- Home (continue where you stopped, due cards, the pending terminal task);
+- Lessons and the lesson pages;
+- Results;
+- Review;
+- Notes & log;
+- Research status (generated from this file and PREREGISTRATION.md);
+- Progress & sync.
+
+Python runs in the browser: Pyodide 314.0.7 in a Web Worker, with the core self-hosted and
+the packages loaded from the pinned CDN path. `tsfm_rc` is installed from a pure-Python wheel
+built from `src/`. Progress is stored in IndexedDB first and synced to Supabase when
+configured (D-043 to D-051).
+
+**Where an exercise does not run the study's own code** (each says so on its page):
+
+| Lesson | What runs in the browser instead | Evidence it is the same |
+|---|---|---|
+| 04 AR, GARCH, HAR | `tsfm_rc.models.garch_np`, a NumPy/SciPy re-implementation of the `arch` GARCH(1,1)-t estimator (`arch` does not run in Pyodide) | `tests/test_garch_np.py`: same variance path and likelihood as `arch` to 1e-10 at fixed parameters; the fitted likelihood is at least as high as `arch`'s (within 0.01) on every fixture, with the same parameters |
+| 00, 09, 10 | **Precomputed**: stored results read from the published JSON (`make publish-results`) instead of the Parquet files (no `pyarrow` in the lesson sandbox) | `tests/test_publish.py`: the JSON round-trips to the Parquet tables exactly (every float) |
+| 05 foundation models | Nothing: the models need PyTorch and their weights. The loading cell prints why, and the lesson points to the Results page | — |
+| 02 volatility | The Garman–Klass discretisation simulation uses 20,000 paths (the study's function defaults to 200,000) | Same function; only `n_paths` differs |
+
+All other lessons (01, 03, 06, 07, 08) run the study's own code unchanged.
+
+### 10.4 What was verified in a browser, and where
+
+- **CI only** (GitHub Actions, job `site`, Chromium with real Pyodide, `REQUIRE_PYODIDE=1`
+  so the tests cannot be skipped):
+  - every lesson: all code cells run, the unsolved starter fails the checker with an
+    explanation, the solution passes;
+  - one exercise failing and then passing, with tiered hints.
+
+  The build container cannot reach the Pyodide package CDN (egress policy), so these tests
+  are skipped there.
+- **In CI and in the build container** (Playwright, production build, production security
+  headers):
+  - completing a step, then reloading;
+  - autosave surviving a closed tab;
+  - export then import;
+  - reviewing due cards, then reloading;
+  - the Results page with provenance and the SYNTHETIC label;
+  - prerequisite override;
+  - offline use after a first visit.
+- **Also in CI:** every lesson under Pyodide's exact package versions on CPython 3.14.
+- **In the build container only:** a manual check that the self-hosted Pyodide core starts
+  under the production Content-Security-Policy.
+- **Two defects were found only by the CI browser run and fixed:**
+  - progress written right before a reload could be lost (`b24357e`, now covered by a unit
+    test);
+  - a prerequisite-lock timing issue in the tests (`e9f517e`).
+
+The first fully green browser run was GitHub Actions run `36492069235` on `b24357e`: all 20
+Playwright tests passed, including all 11 lessons in real Pyodide, in 57 s. The run on
+`e9f517e` had timed out on lesson 00 before the part-4 changes. Its trace could not be
+downloaded here (the artifact host is blocked), so it is not known which of those changes
+cured it. Clicks now fail after 60 s with Playwright's reason, and the test prints
+diagnostics, so a recurrence would explain itself in the CI log.
+
+### 10.5 Fix 3: small corrections
+
+- `dm_test` appends `dropped_nonfinite=N` to its flag when it drops NaN/inf values
+  (`tests/test_stats.py::test_dm_reports_dropped_nonfinite_values`). No stored flag changed:
+  the study's own series have no gaps.
+- **Synthetic control.**
+  - Each oracle ratio has a 95% stationary-bootstrap CI.
+  - The report and summary call a ratio below 1 whose CI covers 1 sampling noise.
+  - The figure draws the CIs.
+  - Tested in `tests/test_evaluate.py::test_synthetic_oracle_ratio_has_bootstrap_ci_and_honest_wording`.
+- **PRETRAINING-DATA.md** opens with a checklist of every claim not verified from a primary
+  source (C1–C5, T1–T6, M1–M3, R1–R2). A test requires every `[S]`, `[M]` and `[UNVERIFIED]`
+  row to be on it.
+
+### 10.6 A reproducibility finding (D-054)
+
+Regenerating the artifacts for fix 3 on a new build host moved GARCH forecasts, even though
+no forecasting code had changed. The cause is the OpenBLAS libraries bundled with the
+NumPy/SciPy wheels, which pick a CPU-specific kernel.
+
+**Scale** (smoke run):
+- forecasts moved by up to 0.036;
+- DM p-values moved by up to 0.011, with no 5% decision changed;
+- one MCS p-value of two near-tied GARCH variants moved from 0.255 to 1.000.
+
+**Fix.** Every committed artifact is reproduced exactly with OpenBLAS's generic Prescott
+kernels. `tsfm-rc` now pins them on x86-64 and records the choice in provenance.
+
+**Numbers after regeneration.** The regeneration ran `tsfm-rc all` on default_fixtures
+(3 min 51 s) and then smoke (57 s), both from a clean checkout of `89b2306`. It was slower
+than in Build 08 (2 min 57 s and 37 s) because the generic kernels are slower. Every table committed in fix 1 is identical cell by cell
+(`pandas.testing.assert_frame_equal`, exact), and so are all forecast files. The one
+difference is the synthetic-control table, which gains the three CI columns. Artifact
+hashes change because provenance changed (commit, the kernel field).
+
+### 10.7 Known weaknesses after Audit-01
+
+- **Browser tests run only in CI.** The build container cannot reach the Pyodide package CDN
+  (egress policy), so the real-Pyodide lesson tests have only ever run on GitHub Actions.
+- **Packages come from a CDN.** The site loads Pyodide's packages from jsDelivr on the first
+  visit. If the CDN is blocked, lessons show a clear "Python could not start" message.
+  Self-hosting the packages would add about 40 MB to every deploy.
+- **Parts of the site never run for real.** Supabase login and sync, the Netlify deploy and
+  the DNS change have not been done: they need the owner's accounts. RLS, the sync rule
+  and the trigger are tested on a real Postgres engine (PGlite), not on Supabase itself.
+- **Conflict handling is simple.** Last-write-wins per record keeps the later of two
+  offline edits to the same note; clock skew between devices can reorder near-simultaneous
+  edits (D-047).
+- **Statistics.**
+  - The A4 test buys accurate size with power: 60–72% where an ideal test has 80% (D-039).
+  - At T ≈ 100 with 20-day targets it still over-rejects (≈ 12%).
+- **Reproducibility across hardware.**
+  - Bit-for-bit only on x86-64 with the locked wheels.
+  - On other hardware, GARCH-family results agree to the tolerance stated in D-054.
+- Everything in §5 still applies. Above all, **no result on real data or with real
+  foundation-model weights exists yet.**
+
+### 10.8 Manual go-live steps
+
+`docs/DEPLOY.md` has the click-by-click version. In short:
+
+1. **Supabase.**
+   - Create a project.
+   - Copy the Project URL and the public **anon/publishable** key. Never copy the
+     service-role key.
+   - In the SQL Editor, run `site/supabase/migrations/20260928120000_progress_schema.sql`.
+     This creates seven tables, RLS and four `own_rows_*` policies per table.
+   - Under Authentication → URL Configuration, set the Site URL and the redirect URLs.
+2. **Netlify.**
+   - Import `M-Rodani1/tsfm-benchmark`, branch **`main`**. `netlify.toml` sets base `site`,
+     the command `npm run build` and the publish directory `dist`.
+   - Under Site configuration → Environment variables, add these, then deploy:
+
+     | Variable | Value |
+     |---|---|
+     | `VITE_SUPABASE_URL` | the Project URL |
+     | `VITE_SUPABASE_ANON_KEY` | the anon/publishable key |
+     | `VITE_ALLOWED_EMAIL` | your email address (optional) |
+3. **First sign-in.**
+   - Open the site and request a magic link under Progress & sync.
+   - Sign in.
+   - Then disable **Allow new users to sign up** in Supabase.
+4. **DNS.**
+   - In Netlify, add the custom subdomain.
+   - At your DNS provider, create `CNAME <subdomain> → <site>.netlify.app` and no A record.
+   - Once DNS verifies, provision the certificate.
+   - Set the same address as the Supabase Site URL.
+5. **Optional.** On GitHub, make `main` the default branch (Settings → General). The
+   default branch is still the build branch `claude/dreamy-albattani-nysd72`.
+6. **After the real study.** Run `make reproduce`, then `make publish-results`, then commit
+   and push `site/public/data/results`. Netlify rebuilds, and the Home page's terminal task
+   disappears.

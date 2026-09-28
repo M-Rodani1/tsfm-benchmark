@@ -11,6 +11,7 @@ prerequisites: ["09"]
 you_need: "Lesson 09."
 code_to_read: ["paper_template.md (this lesson)", "reports/RESULTS.md", "docs/PREREGISTRATION.md"]
 mounts: ["results:smoke"]
+browser_note: "In the browser, the stored results in this lesson come from the JSON that `make publish-results` exported from the Parquet files (precomputed; the same numbers, checked by `tests/test_publish.py`). The notebook version reads the Parquet files directly."
 assets: ["paper_template.md"]
 next: null
 ---

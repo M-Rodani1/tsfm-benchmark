@@ -547,7 +547,8 @@ interval by the ease factor, lapses reset it.
 is done. The Anki CSV export remains as a secondary option.
 
 **Tests.** `site/tests/srs.test.ts` checks the 1, 6, ⌈6·EF⌉ sequence, the ease formula and
-floor, and lapses.
+floor, lapses, and that the Anki CSV contains every card in exactly the `make flashcards`
+format.
 
 ### D-049 — Publishing results to the site (Audit-01 fix 2)
 **Command.** `make publish-results` (`src/tsfm_rc/pipeline/publish.py`) exports each run's

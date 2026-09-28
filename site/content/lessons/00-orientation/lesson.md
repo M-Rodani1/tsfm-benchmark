@@ -11,6 +11,7 @@ prerequisites: []
 you_need: "Nothing. Start here."
 code_to_read: ["configs/default.yaml", "docs/PREREGISTRATION.md"]
 mounts: ["fixtures", "configs", "results:smoke"]
+browser_note: "In the browser, the stored results in this lesson come from the JSON that `make publish-results` exported from the Parquet files (precomputed; the same numbers, checked by `tests/test_publish.py`). The notebook version reads the Parquet files directly."
 next: "01"
 ---
 
