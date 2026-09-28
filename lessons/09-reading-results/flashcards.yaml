@@ -1,7 +1,9 @@
 - q: Where does every number in reports/RESULTS.md come from?
-  a: From stored tables in results/<run>/stats/*.parquet, listed with their SHA-256 in the Provenance section.
+  a: From stored tables in results/<run>/stats/*.parquet, listed with their SHA-256 in the Provenance
+    section.
 - q: What is the difference between an absent result and a null result?
-  a: Absent = the model could not be evaluated (UNAVAILABLE), so no evidence either way; null = evaluated, no detectable difference.
+  a: Absent = the model could not be evaluated (UNAVAILABLE), so no evidence either way; null = evaluated,
+    no detectable difference.
 - q: A comparison has raw p = 0.01 but Holm p = 0.20. Is it a finding?
   a: No. It does not survive the pre-specified multiple-testing correction.
 - q: What does a relative loss of 0.95 [0.90, 1.01] mean?

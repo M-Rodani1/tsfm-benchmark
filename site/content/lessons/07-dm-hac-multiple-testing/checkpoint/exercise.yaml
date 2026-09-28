@@ -1,0 +1,5 @@
+function: my_holm
+hints:
+  - "Sort the p-values (`np.argsort(p)`). The k-th smallest (k = 0, 1, …) is multiplied by m − k."
+  - "Cap each value at 1, and keep a running maximum along the sorted order so adjusted values never go down."
+  - "Loop over `order = np.argsort(p)` with its rank; `running = max(running, min(1, (m - rank) * p[i]))`; store it at position i."

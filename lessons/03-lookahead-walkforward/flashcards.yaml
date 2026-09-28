@@ -1,5 +1,6 @@
 - q: What is look-ahead bias?
-  a: Using any information from after the forecast origin t when making (or evaluating the inputs of) a forecast at t.
+  a: Using any information from after the forecast origin t when making (or evaluating the inputs of)
+    a forecast at t.
 - q: Why did the centred moving average "predict" pure noise so well?
   a: With center=True the average at t includes t+1..t+5, so tomorrow's return is part of the signal.
 - q: What does ForecastOrigin.history(data) return?

@@ -1,5 +1,6 @@
 - q: What is pretraining-data contamination?
-  a: The evaluation period's data were (possibly) in the model's training set, so good scores may reflect recall, not forecasting.
+  a: The evaluation period's data were (possibly) in the model's training set, so good scores may reflect
+    recall, not forecasting.
 - q: Which data can definitely not be in a model's pretraining set?
   a: Data after the model's public release (after the weights were fixed).
 - q: When is a forecast labelled "possibly seen"?
@@ -11,6 +12,7 @@
 - q: Why use a ratio of losses rather than a difference?
   a: A regime that scales both models' losses equally (e.g. a more volatile period) leaves the ratio unchanged.
 - q: What does the placebo test show?
-  a: How much Delta moves between the windows for models that cannot memorise (baseline pairs), i.e. regime effects.
+  a: How much Delta moves between the windows for models that cannot memorise (baseline pairs), i.e. regime
+    effects.
 - q: What does a non-significant Delta mean?
   a: No evidence of memorisation with this power; it is not proof that the model never saw the data.

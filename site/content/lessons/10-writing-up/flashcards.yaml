@@ -1,0 +1,12 @@
+- q: What four things does every result sentence need?
+  a: The comparison, the effect size with its CI, the corrected p-value, and the verdict.
+- q: Why generate result sentences from stored tables instead of typing them?
+  a: A re-run can then never leave a stale or mistyped number in the paper.
+- q: In what order should results be reported?
+  a: The pre-registered order, primary family first, regardless of what it shows.
+- q: How do you report a model that could not be evaluated?
+  a: Name it, give the reason, and state that no evidence exists either way (absent, not null).
+- q: What must a limitations section of this study mention?
+  a: Survivorship bias, the volatility proxy, contamination uncertainty, regime confounding, small clean windows, amendments.
+- q: Can you cite a paper you found by search but have not read?
+  a: No. Read it first, or leave it out.

@@ -1,7 +1,8 @@
+# GENERATED from site/content/lessons/10-writing-up by `make lessons`: edit the source, not this file.
+
 # %% [markdown]
 # # Lesson 10: Writing it up as a short paper
-# ⏱ **90 min** · files: `lessons/10-writing-up/paper_template.md`, `reports/RESULTS.md`,
-# `docs/PREREGISTRATION.md`
+# ⏱ **90 min** · code you will read: `paper_template.md (this lesson)`, `reports/RESULTS.md`, `docs/PREREGISTRATION.md`
 #
 # **You'll be able to…**
 # 1. lay out a 4–6 page empirical paper and know what goes where;
@@ -11,28 +12,39 @@
 #
 # **You need:** Lesson 09.
 
+# %% [markdown]
+# ## The shape of the paper
+#
+# Two rules make it honest. **Methods before results, written as pre-registered**, with every
+# amendment reported and dated. **Results in the order of the pre-registration**: primary
+# family first, whatever it says.
+
 # %%
 import pandas as pd
 
-from tsfm_rc.paths import LESSONS_DIR, RESULTS_DIR
-from tsfm_rc.reports.results_md import ci, fp
+from tsfm_rc.learn import stats_table
+from tsfm_rc.reports.fmt import ci, fp
 
-stats = RESULTS_DIR / "smoke" / "stats"
-dm_all = pd.read_parquet(stats / "dm_all.parquet")
-dm_primary = pd.read_parquet(stats / "dm_primary.parquet")
-print((LESSONS_DIR / "10-writing-up" / "paper_template.md").read_text()[:1200])
+dm_all = stats_table("smoke", "dm_all")
+dm_primary = stats_table("smoke", "dm_primary")
+print(open("paper_template.md", encoding="utf-8").read()[:1200])
 
 # %% [markdown]
-# ## 1. The shape of the paper
-# Read the template above. Two rules make it honest:
-# - **Methods before results, written as pre-registered.** Amendments are reported, with dates.
-# - **Results in the order of the pre-registration.** Primary family first, whatever it says.
+# ## One sentence per result, generated
 #
-# ## 2. One sentence per result, generated
-# A result sentence needs: comparison, effect size with CI, corrected p-value, verdict.
+# A result sentence needs the comparison, the effect size with its CI, the corrected p-value
+# and a verdict.
 #
-# 🤔 **Predict before you run:** for `garch` vs `har` (rv, h=5, full period), will the verdict
-# be "better" or "no detectable difference"?
+# 🤔 **Predict before you run:** For `garch` vs `har` (rv, h = 5, full period) the point estimate says GARCH's loss is clearly lower. Will the verdict be "model better"?
+#
+# - Yes: its loss is lower
+# - No: no detectable difference
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **No: no detectable difference.** Look at the printed sentence: the 95% CI of the relative loss includes 1 and the Holm-adjusted p is far above 0.05. A large-looking effect that the data cannot separate from luck.
+#
+# </details>
 
 # %%
 def sentence(r) -> str:
@@ -44,20 +56,30 @@ row = dm_all.query("period == 'full' and window == 'expanding' and model == 'gar
 print(sentence(row))
 
 # %% [markdown]
-# Because the text is produced from the table, a re-run can never leave a stale number in
-# your paper.
+# Because the text is produced from the table, a re-run can never leave a stale number in your
+# paper.
+
+# %% [markdown]
+# ## Absent results get a sentence too
 #
-# ## 3. Absent results get a sentence too
-# 🤔 **Predict:** what should the paper say about the TSFMs in *this* (synthetic, offline) run?
+# 🤔 **Predict before you run:** What should the paper say about the TSFMs in *this* (synthetic, offline) run?
+#
+# - TSFMs did not beat the baselines
+# - The TSFMs could not be evaluated, with the reason
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **The TSFMs could not be evaluated, with the reason.** Without model outputs there is no evidence either way; the paper must say the tests could not be run, and why.
+#
+# </details>
 
 # %%
 n_unavail = (dm_primary["status"] == "UNAVAILABLE").sum()
 print(f"{n_unavail} of {len(dm_primary)} primary tests could not be run (model weights unavailable).")
 
 # %% [markdown]
-# Write exactly that. "TSFMs did not beat the baselines" would be a false claim.
+# ## Claims vs evidence
 #
-# ## 4. Claims vs evidence
 # For each draft claim, find the row that supports it. If there is none, delete the claim.
 
 # %%
@@ -71,15 +93,13 @@ for claim, (target, horizon, model) in claims.items():
     print(f"{'SUPPORTED  ' if r.reject_holm else 'UNSUPPORTED'} | {claim} | Holm p = {fp(r.p_holm)}")
 
 # %% [markdown]
-# ## 5. Before you submit (checklist)
-# - Data section says real or synthetic, the period, the universe *and* survivorship bias.
-# - Every model that could not run is named, with the reason.
-# - Every p-value in the abstract is a corrected one.
-# - Limitations include contamination uncertainty (`docs/PRETRAINING-DATA.md` tags).
-# - Related work you cite, you have read. The two TSFM-in-finance papers listed at the end
-#   of `docs/PRETRAINING-DATA.md` were found by search and **not** read yet.
+# Before you submit: the data section says real or synthetic, the period, the universe *and* its
+# survivorship bias; every model that could not run is named, with the reason; every p-value in
+# the abstract is a corrected one; related work you cite, you have read.
+
+# %% [markdown]
+# ## Checkpoint
 #
-# ## ✅ Checkpoint
 # Write `my_sentence(r)` that returns exactly the same text as `sentence(r)` above, for any
 # row of `dm_all` (use `ci` and `fp`).
 
@@ -92,7 +112,23 @@ def my_sentence(r):
 from checker import check
 check(my_sentence)
 
+# %% [markdown] tags=["flashcards"]
+# ## Flashcards
+#
+# Cover the answer, say it out loud, then check. `make flashcards` exports these to Anki; the website schedules them for review.
+#
+# 1. **Q:** What four things does every result sentence need?
+#    - **A:** The comparison, the effect size with its CI, the corrected p-value, and the verdict.
+# 2. **Q:** Why generate result sentences from stored tables instead of typing them?
+#    - **A:** A re-run can then never leave a stale or mistyped number in the paper.
+# 3. **Q:** In what order should results be reported?
+#    - **A:** The pre-registered order, primary family first, regardless of what it shows.
+# 4. **Q:** How do you report a model that could not be evaluated?
+#    - **A:** Name it, give the reason, and state that no evidence exists either way (absent, not null).
+# 5. **Q:** What must a limitations section of this study mention?
+#    - **A:** Survivorship bias, the volatility proxy, contamination uncertainty, regime confounding, small clean windows, amendments.
+# 6. **Q:** Can you cite a paper you found by search but have not read?
+#    - **A:** No. Read it first, or leave it out.
+
 # %% [markdown] tags=["after-flashcards"]
-# **Next:** you have finished the track. Run the real study (`make reproduce`, see README),
-# re-read `reports/RESULTS.md`, and draft your paper from `paper_template.md`. Tick lesson 10
-# in `lessons/PROGRESS.md`.
+# **Next:** you have finished the track. Run the real study (`make reproduce`, see README), re-read `reports/RESULTS.md`, and draft your paper from `paper_template.md`. Tick lesson 10 in `lessons/PROGRESS.md`.

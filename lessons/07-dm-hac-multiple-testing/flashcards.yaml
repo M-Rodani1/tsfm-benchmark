@@ -1,16 +1,21 @@
 - q: What is the Diebold–Mariano test testing?
-  a: H0 that two forecasts have equal expected loss, using the mean of the loss differential d_t and a HAC standard error.
+  a: H0 that two forecasts have equal expected loss, using the mean of the loss differential d_t and a
+    HAC standard error.
 - q: Why are 20-day forecast errors at 5-day origins autocorrelated?
   a: Consecutive targets overlap by 15, 10 and 5 days, so their errors share shocks (MA(3) in origin units).
 - q: What is a long-run (HAC) variance?
-  a: gamma_0 + 2 * sum of weighted autocovariances; the variance of a sample mean when observations are correlated.
+  a: gamma_0 + 2 * sum of weighted autocovariances; the variance of a sample mean when observations are
+    correlated.
 - q: Why did the study switch from Bartlett to rectangular weights for h = 20 (amendment A2)?
-  a: Bartlett weights shrink the overlap autocovariances, under-estimating the variance; a simulation showed ~9-12% false rejections at nominal 5%.
+  a: Bartlett weights shrink the overlap autocovariances, under-estimating the variance; a simulation
+    showed ~9-12% false rejections at nominal 5%.
 - q: What does the Harvey–Leybourne–Newbold correction do?
   a: Scales the DM statistic for small samples and uses a t distribution with T−1 degrees of freedom.
 - q: With 27 independent tests at 5% and no real effects, what is P(at least one rejection)?
   a: 1 − 0.95^27 ≈ 0.75.
 - q: How does the Holm procedure work?
-  a: Sort p-values; compare the k-th smallest with alpha/(m − k + 1); reject until the first failure. Controls family-wise error.
+  a: Sort p-values; compare the k-th smallest with alpha/(m − k + 1); reject until the first failure.
+    Controls family-wise error.
 - q: What is a Model Confidence Set?
-  a: The set of models that cannot be rejected as not-best at confidence 1 − alpha, found by sequential elimination.
+  a: The set of models that cannot be rejected as not-best at confidence 1 − alpha, found by sequential
+    elimination.

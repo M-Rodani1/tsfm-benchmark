@@ -1,3 +1,5 @@
+# GENERATED from site/content/lessons/06-loss-functions by `make lessons`: edit the source, not this file.
+
 # %% [markdown]
 # # Lesson 06: Loss functions, and why QLIKE for volatility
 # ⏱ **60 min** · code you will read: `src/tsfm_rc/eval/metrics.py`
@@ -10,6 +12,22 @@
 #
 # **You need:** Lessons 02 and 04.
 
+# %% [markdown]
+# ## Every loss has a favourite forecast
+#
+# We draw right-skewed "variances" and try every constant forecast `f` against each loss.
+#
+# 🤔 **Predict before you run:** Which constant f minimises the *absolute* error: the mean or the median of y?
+#
+# - The mean
+# - The median
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **The median.** Absolute error is minimised at the median; squared error at the mean; pinball(τ) at the τ-quantile.
+#
+# </details>
+
 # %%
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,14 +37,6 @@ from tsfm_rc.eval.metrics import absolute_error, oos_r2, pinball, qlike, squared
 from tsfm_rc.paths import FIXTURE_DIR
 
 rng = np.random.default_rng(0)
-
-# %% [markdown]
-# ## 1. Every loss has a favourite forecast
-# Draw right-skewed "variances" and try every constant forecast `f`.
-#
-# 🤔 **Predict before you run:** which `f` minimises the *absolute* error, the mean or the median?
-
-# %%
 y = rng.gamma(2.0, 1.0, 100_000)                       # mean 2, median ~1.68
 grid = np.linspace(0.5, 4, 141)
 curves = {
@@ -40,14 +50,27 @@ for k, v in curves.items():
 print(f"mean {y.mean():.2f}, median {np.median(y):.2f}, 90% quantile {np.quantile(y, 0.9):.2f}")
 
 # %% [markdown]
-# MSE and QLIKE reward the **mean**, MAE the **median**, pinball(τ) the **τ-quantile**. Our
-# vol target is a mean, so we need a loss that rewards the mean.
+# MSE and QLIKE reward the **mean**, MAE the **median**, pinball(τ) the **τ-quantile**. The
+# volatility target is a mean, so we need a loss that rewards the mean.
+
+# %% [markdown]
+# ## The noisy-proxy problem
 #
-# ## 2. The noisy-proxy problem (Patton 2011)
-# We never observe true variance; we score against GK, which is truth × noise. On synthetic
-# data we have both, so let's compare two forecasters: **A** = the truth, **B** = 10% too low.
+# We never observe true variance; we score against GK, which is truth × noise (Patton 2011).
+# On synthetic data we have both, so compare two forecasters: **A** = the truth, **B** = 10%
+# too low.
 #
-# 🤔 **Predict:** scored against the noisy proxy, which loss will wrongly prefer B?
+# 🤔 **Predict before you run:** Scored against the noisy proxy, which loss will wrongly prefer B?
+#
+# - MSE
+# - MAE
+# - QLIKE
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **MAE.** MAE rewards the proxy's median, which sits below the true variance for a right-skewed proxy.
+#
+# </details>
 
 # %%
 lat = pd.read_csv(FIXTURE_DIR / "synthetic_latent.csv")
@@ -59,12 +82,13 @@ for name, fn in [("MSE", squared_error), ("MAE", absolute_error), ("QLIKE", qlik
     print(f"{name:6s} scored on proxy picks {winner}")
 
 # %% [markdown]
-# MAE picks the wrong model: it rewards the proxy's *median*, which sits below the true
-# variance. MSE and QLIKE stay correct whenever the proxy is unbiased. That is why the study
-# uses QLIKE (primary) and MSE for volatility.
+# MSE and QLIKE stay correct whenever the proxy is unbiased. That is why the study uses QLIKE
+# (primary) and MSE for volatility.
+
+# %% [markdown]
+# ## QLIKE is asymmetric
 #
-# ## 3. QLIKE is asymmetric
-# `QLIKE(y, f) = y/f − ln(y/f) − 1`.
+# `QLIKE(y, f) = y/f − ln(y/f) − 1`, zero when the forecast is exact.
 
 # %%
 f = np.linspace(0.2, 3, 200)
@@ -74,11 +98,22 @@ plt.axvline(1, c="k", ls=":"); plt.ylim(0, 3); plt.xlabel("forecast f"); plt.leg
 
 # %% [markdown]
 # Under-predicting risk (f < y) costs more than over-predicting: a sensible property for risk.
+
+# %% [markdown]
+# ## Out-of-sample R²
 #
-# ## 4. Out-of-sample R²
-# `1 − MSE(model) / MSE(benchmark)`. Positive = better than the benchmark; negative = worse.
+# `1 − MSE(model) / MSE(benchmark)`. Positive means better than the benchmark; negative, worse.
 #
-# 🤔 **Predict:** with pure-noise returns, is the R² of the *historical mean* vs zero positive?
+# 🤔 **Predict before you run:** Returns with a tiny true mean (0.03) and noise 1: is the R² of the *historical mean* vs zero positive?
+#
+# - Positive
+# - Negative
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **Negative.** Estimating a tiny mean adds more noise than it removes, so the historical mean loses to zero.
+#
+# </details>
 
 # %%
 r = rng.normal(0.03, 1, 2000)
@@ -86,8 +121,9 @@ hist_mean = np.array([r[:t].mean() for t in range(250, 2000)])
 print(f"OOS R² = {oos_r2(r[250:], hist_mean, np.zeros_like(hist_mean)):.4f}")
 
 # %% [markdown]
-# ## ✅ Checkpoint
-# Write `my_qlike(y, f)` for NumPy arrays (normalised form above).
+# ## Checkpoint
+#
+# Write `my_qlike(y, f)` for NumPy arrays, in the normalised form above.
 
 # %% tags=["exercise"]
 def my_qlike(y, f):
@@ -98,6 +134,27 @@ def my_qlike(y, f):
 from checker import check
 check(my_qlike)
 
+# %% [markdown] tags=["flashcards"]
+# ## Flashcards
+#
+# Cover the answer, say it out loud, then check. `make flashcards` exports these to Anki; the website schedules them for review.
+#
+# 1. **Q:** Which constant forecast minimises expected squared error? absolute error?
+#    - **A:** MSE -> the mean; MAE -> the median.
+# 2. **Q:** Which forecast does the pinball loss at level tau reward?
+#    - **A:** The tau-quantile of the outcome.
+# 3. **Q:** Write QLIKE in the normalised form used here.
+#    - **A:** QLIKE(y, f) = y/f − ln(y/f) − 1 (zero when f = y).
+# 4. **Q:** What does Patton (2011) show about volatility losses?
+#    - **A:** With a noisy but unbiased variance proxy, MSE and QLIKE still rank forecasts as if the true variance were known; many other losses (e.g. MAE) do not.
+# 5. **Q:** Why does MAE prefer a too-low volatility forecast when scored on a noisy proxy?
+#    - **A:** MAE targets the proxy's median, which is below the true variance for right-skewed noise.
+# 6. **Q:** Is QLIKE symmetric?
+#    - **A:** No; under-predicting the variance is penalised more than over-predicting.
+# 7. **Q:** What is out-of-sample R^2?
+#    - **A:** 1 − MSE(model)/MSE(benchmark); negative means worse than the benchmark.
+# 8. **Q:** What are the study's primary losses per target?
+#    - **A:** Returns: MSE. Realised volatility: QLIKE. Log volume: MSE.
+
 # %% [markdown] tags=["after-flashcards"]
-# **Next:** open `lessons/07-dm-hac-multiple-testing/lesson.ipynb` (is a difference in loss
-# real or luck?). Tick lesson 06 in `lessons/PROGRESS.md`.
+# **Next:** open `lessons/07-dm-hac-multiple-testing/lesson.ipynb` (Diebold–Mariano, HAC, and the multiple-testing problem). Tick lesson 06 in `lessons/PROGRESS.md`.

@@ -1,0 +1,5 @@
+function: verdict
+hints:
+  - "Only the *Holm-adjusted* p-value decides whether there is a finding at all."
+  - "If `p_holm <= alpha`, the sign of `mean_diff` decides the direction: negative means the model's loss is lower."
+  - "`if p_holm <= alpha: return \"model better\" if mean_diff < 0 else \"model worse\"`, otherwise `\"no detectable difference\"`."

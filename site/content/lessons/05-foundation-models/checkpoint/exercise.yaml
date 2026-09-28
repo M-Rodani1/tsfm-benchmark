@@ -1,0 +1,5 @@
+function: my_lognormal_mean
+hints:
+  - "For a normal X, q90 − q10 = 2 × 1.2816 × s. Solve for the standard deviation s."
+  - "The mean of exp(X) for a normal X with median (= mean) m is exp(m + s²/2)."
+  - "`s = (q90 - q10) / (2 * 1.2815515655446004)`, then `return np.exp(median + s**2 / 2)`."

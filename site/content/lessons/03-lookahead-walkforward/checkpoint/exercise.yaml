@@ -1,0 +1,5 @@
+function: my_label_mask
+hints:
+  - "Row i's label covers rows i+1 … i+h. When is its *last* row already in the past?"
+  - "It is usable when i + h ≤ origin_pos. Build all positions at once with `np.arange(n)`."
+  - "`np.arange(n) + h <= origin_pos` is already a boolean array of length n."

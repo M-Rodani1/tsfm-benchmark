@@ -1,7 +1,7 @@
 - q: Write the Garman–Klass daily variance estimator.
   a: 0.5 [ln(H/L)]^2 − (2 ln 2 − 1) [ln(C/O)]^2 (times 100^2 for %^2).
 - q: Why is GK always non-negative for valid OHLC?
-  a: "|ln(C/O)| ≤ ln(H/L) and 0.5 > 2 ln 2 − 1 ≈ 0.386, so the first term dominates."
+  a: '|ln(C/O)| ≤ ln(H/L) and 0.5 > 2 ln 2 − 1 ≈ 0.386, so the first term dominates.'
 - q: Why is volatility forecastable when returns are not?
   a: Variance moves slowly and clusters, so its past strongly predicts its near future.
 - q: What is a volatility "proxy"?

@@ -5,7 +5,8 @@
 - q: Write QLIKE in the normalised form used here.
   a: QLIKE(y, f) = y/f − ln(y/f) − 1 (zero when f = y).
 - q: What does Patton (2011) show about volatility losses?
-  a: With a noisy but unbiased variance proxy, MSE and QLIKE still rank forecasts as if the true variance were known; many other losses (e.g. MAE) do not.
+  a: With a noisy but unbiased variance proxy, MSE and QLIKE still rank forecasts as if the true variance
+    were known; many other losses (e.g. MAE) do not.
 - q: Why does MAE prefer a too-low volatility forecast when scored on a noisy proxy?
   a: MAE targets the proxy's median, which is below the true variance for right-skewed noise.
 - q: Is QLIKE symmetric?
@@ -13,4 +14,4 @@
 - q: What is out-of-sample R^2?
   a: 1 − MSE(model)/MSE(benchmark); negative means worse than the benchmark.
 - q: What are the study's primary losses per target?
-  a: "Returns: MSE. Realised volatility: QLIKE. Log volume: MSE."
+  a: 'Returns: MSE. Realised volatility: QLIKE. Log volume: MSE.'

@@ -1,0 +1,108 @@
+# General plain-English explanations for Python errors, used by the lesson runner when a
+# lesson's own errors.yaml has no match. `match` is a regular expression tested against
+# "ErrorType: message" (first match wins, lesson entries first). Keep `why` and `fix` short.
+
+- see: "NotImplementedError"
+  match: "^NotImplementedError"
+  why: "The exercise still contains the placeholder `raise NotImplementedError`."
+  fix: "Delete that line and write your own code in its place."
+
+- see: "NameError: name 'x' is not defined"
+  match: "^NameError: name '(np|pd|plt)' is not defined"
+  why: "The import at the top of the lesson has not run in this session."
+  fix: "Press **Run** on the lesson's first code cell (or use *Run all above*), then try again."
+
+- see: "NameError: name 'x' is not defined"
+  match: "^NameError"
+  why: "Python does not know this name: a typo, or a variable made in a cell you have not run yet."
+  fix: "Check the spelling (Python is case-sensitive). If it comes from an earlier cell, run the cells above first."
+
+- see: "IndentationError / TabError"
+  match: "^(IndentationError|TabError)"
+  why: "The lines inside a function or loop must be indented by the same amount (4 spaces)."
+  fix: "Line up the body of your `def` with 4 spaces; do not mix tabs and spaces."
+
+- see: "SyntaxError"
+  match: "^SyntaxError"
+  why: "Python could not read the code: often a missing `:` after `def`/`for`/`if`, a missing bracket, or an unfinished string."
+  fix: "Look at the line number in the message and the line just above it."
+
+- see: "TypeError: ... 'NoneType' ..."
+  match: "^TypeError: .*NoneType"
+  why: "Something is `None`: usually a function that computes a value but never `return`s it."
+  fix: "Add `return <your result>` as the last line of your function."
+
+- see: "operands could not be broadcast together with shapes (a,) (b,)"
+  match: "operands could not be broadcast together"
+  why: "NumPy tried to combine two arrays of different lengths element by element."
+  fix: "Print `.shape` of both arrays. Usually one of them was sliced one element shorter (an off-by-one in `x[1:]` vs `x[:-1]`)."
+
+- see: "shapes (a,b) and (c,d) not aligned"
+  match: "not aligned|matmul: Input operand|mismatch in its core dimension"
+  why: "Matrix multiplication needs the inner dimensions to match: (n, k) @ (k,) works, (n, k) @ (m,) does not."
+  fix: "Print `.shape` of both sides; check you built the design matrix with one column per coefficient."
+
+- see: "IndexError: index ... is out of bounds"
+  match: "^IndexError: (index|single positional indexer) .*out[- ]of[- ]bounds"
+  why: "You asked for an element past the end (or before the start) of an array or Series."
+  fix: "Arrays start at 0 and end at `len(x) - 1`. Check loops like `range(len(x))` combined with `x[t + 1]`."
+
+- see: "IndexError: too many indices"
+  match: "^IndexError: too many indices"
+  why: "You indexed a 1-D array with two indices, e.g. `x[i, j]` on a vector."
+  fix: "Print `x.shape`; use one index for a 1-D array."
+
+- see: "KeyError: 'column'"
+  match: "^KeyError"
+  why: "The column (or label) you asked for does not exist in this DataFrame/Series/dict."
+  fix: "Print `df.columns` (or `d.keys()`) and copy the exact name. Dates in an index must be `pd.Timestamp`s."
+
+- see: "ValueError: The truth value of an array/Series is ambiguous"
+  match: "truth value of (an array|a Series|a DataFrame) .*ambiguous"
+  why: "`if`, `and`, `or` need a single True/False, but you gave them a whole array."
+  fix: "Use `&`, `|` and brackets for element-wise logic, or `.any()` / `.all()` to reduce to one value."
+
+- see: "ValueError: Length of values does not match length of index"
+  match: "Length of values .* does not match length of index|Length mismatch"
+  why: "You tried to put an array into a DataFrame/Series whose length is different."
+  fix: "Print `len(...)` of both; align on the index (e.g. `pd.Series(values, index=...)`) instead of raw arrays."
+
+- see: "TypeError: unsupported operand type(s) / cannot convert ... to float"
+  match: "unsupported operand type|could not convert string to float|cannot convert"
+  why: "The data type is wrong: text where a number was expected, or mixing incompatible types."
+  fix: "Check `.dtype` (NumPy) or `.dtypes` (pandas). Dates need `pd.to_datetime`, numbers `astype(float)`."
+
+- see: "TypeError: Invalid comparison between dtype=datetime64 and str"
+  match: "Invalid comparison between dtype=datetime64|Cannot compare .*Timestamp"
+  why: "You compared dates with a string."
+  fix: "Wrap the string in `pd.Timestamp(\"2020-01-31\")`."
+
+- see: "AttributeError: 'numpy.ndarray' object has no attribute ..."
+  match: "^AttributeError: 'numpy\\.ndarray' object has no attribute '(iloc|loc|index|shift|rolling|values)'"
+  why: "That is a pandas method, but your object is a plain NumPy array."
+  fix: "Use NumPy indexing (`x[i]`, `x[1:]`), or keep the pandas Series (don't call `.to_numpy()` too early)."
+
+- see: "AttributeError"
+  match: "^AttributeError"
+  why: "This object has no attribute/method with that name."
+  fix: "Check the spelling, and print `type(obj)` to see what the object really is."
+
+- see: "ZeroDivisionError / RuntimeWarning: divide by zero"
+  match: "ZeroDivisionError|divide by zero"
+  why: "A division by zero (or `log(0)`)."
+  fix: "Check for zeros or missing values in the denominator before dividing."
+
+- see: "ModuleNotFoundError"
+  match: "^ModuleNotFoundError"
+  why: "That package is not available here. The browser only has the packages the site loads (NumPy, pandas, SciPy, matplotlib, …)."
+  fix: "Use only the imports shown in the lesson. On your own machine, `make install-all` installs everything."
+
+- see: "AssertionError: ❌ …"
+  match: "^AssertionError: ❌"
+  why: "The checker compared your answer with the study's own code and found a difference. The message says where."
+  fix: "Read the message; it usually contains a hint. Still stuck after 10 minutes? Open a hint below."
+
+- see: "RecursionError / MemoryError"
+  match: "^(RecursionError|MemoryError)"
+  why: "The computation grew too large for the browser (or a function calls itself forever)."
+  fix: "Check loop bounds; use smaller arrays. Press *Restart Python* if the page stops responding."
