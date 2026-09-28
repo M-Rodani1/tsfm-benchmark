@@ -16,6 +16,8 @@ export default defineConfig({
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: "http://localhost:4173",
+    // a click that cannot happen fails with Playwright's reason instead of using up the test
+    actionTimeout: 60_000,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },

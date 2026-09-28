@@ -5,7 +5,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { cdnReachable, content } from "./helpers";
 
-test.describe.configure({ mode: "serial" });
+// One page for all tests (like a learner moving between lessons in one tab). Not "serial":
+// a failing lesson must not skip the others (Playwright then starts a fresh worker and page).
 let page: Page;
 
 test.beforeAll(async ({ browser }) => {
@@ -14,11 +15,26 @@ test.beforeAll(async ({ browser }) => {
   test.skip(!ok, "Pyodide packages (cdn.jsdelivr.net) unreachable from this machine");
   page = await browser.newPage();
   page.on("dialog", (d) => void d.accept());
-  page.on("console", (m) => { if (m.type() === "error") console.log(`[browser] ${m.text()}`); });
+  page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") console.log(`[browser ${m.type()}] ${m.text()}`); });
+  page.on("pageerror", (e) => console.log(`[pageerror] ${e.message}`));
+  page.on("crash", () => console.log("[crash] the page crashed"));
+  page.on("requestfailed", (r) => console.log(`[requestfailed] ${r.url()} ${r.failure()?.errorText ?? ""}`));
   await page.goto("/lessons");
 });
 
 test.afterAll(async () => page?.close());
+
+// On failure, print what the page shows (CI artifacts may be unreachable to whoever debugs).
+// eslint-disable-next-line no-empty-pattern -- Playwright requires a destructuring pattern here
+test.afterEach(async ({}, info) => {
+  if (!page || info.status === info.expectedStatus) return;
+  const responsive = await Promise.race([page.evaluate(() => true).catch(() => false), new Promise((r) => setTimeout(() => r(false), 5000))]);
+  console.log(`[diagnostics] ${info.title}: main thread responsive: ${responsive}`);
+  if (!responsive) return;
+  const text = async (sel: string) => (await page.locator(sel).first().innerText({ timeout: 2000 }).catch(() => "(none)")).slice(0, 1500);
+  console.log(`[diagnostics] python status: ${await text("[data-testid=py-status]")}`);
+  console.log(`[diagnostics] checkpoint:\n${await text("[data-testid=checkpoint]")}`);
+});
 
 async function openCheckpoint(lessonId: string) {
   await page.getByRole("link", { name: "Lessons", exact: true }).click();
@@ -62,7 +78,8 @@ for (const lesson of content.lessons) {
     test.setTimeout(600_000);
     await openCheckpoint(lesson.id);
     const cp = page.getByTestId("checkpoint");
-    await cp.getByRole("button", { name: /Reset to starter/ }).click().catch(() => {});
+    const reset = cp.getByRole("button", { name: /Reset to starter/ });
+    if (await reset.count()) await reset.click();
     await check(); // runs every earlier cell of the lesson first, then the starter
     const err = cp.getByTestId("error-box");
     await expect(err).toBeVisible();

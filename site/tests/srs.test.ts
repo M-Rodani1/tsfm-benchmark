@@ -1,4 +1,8 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { load as yamlLoad } from "js-yaml";
 import { describe, expect, it } from "vitest";
+import { ankiCsv } from "../src/lib/anki";
 import { addDays, isDue, localDate, newCard, preview, review } from "../src/lib/srs";
 
 const day = (s: string) => new Date(`${s}T09:00:00`);
@@ -43,5 +47,44 @@ describe("SM-2 scheduler", () => {
     expect(p.good).toBe(15);
     expect(addDays("2026-01-31", 1)).toBe("2026-02-01");
     expect(localDate(new Date(2026, 11, 31))).toBe("2026-12-31");
+  });
+});
+
+describe("Anki export", () => {
+  // RFC 4180 reader (the format Python's csv.writer with QUOTE_MINIMAL produces for `make flashcards`)
+  function parseCsv(text: string): string[][] {
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let field = "";
+    let quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (quoted) {
+        if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+        else if (ch === '"') quoted = false;
+        else field += ch;
+      } else if (ch === '"') quoted = true;
+      else if (ch === ",") { row.push(field); field = ""; }
+      else if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+      else field += ch;
+    }
+    return rows;
+  }
+
+  it("exports every card of every lesson as front,back,tags exactly like `make flashcards`", () => {
+    const rows = parseCsv(ankiCsv());
+    const content = join(__dirname, "..", "content", "lessons");
+    const expected = readdirSync(content)
+      .filter((d) => /^\d\d-/.test(d))
+      .sort()
+      .flatMap((d) =>
+        ((yamlLoad(readFileSync(join(content, d, "flashcards.yaml"), "utf8")) ?? []) as { q: string; a: string }[]).map((c) => [
+          String(c.q).trim(),
+          String(c.a).trim(),
+          `tsfm_rc lesson_${d.slice(0, 2)} ${d.slice(3)}`,
+        ]),
+      );
+    expect(expected.length).toBeGreaterThanOrEqual(55);
+    expect(rows).toEqual(expected);
   });
 });

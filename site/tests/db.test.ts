@@ -16,6 +16,23 @@ describe("local store (IndexedDB)", () => {
     expect(s2.raw("notes", "01")?.dirty).toBe(true);
   });
 
+  it("writes made right before the page goes away are not lost (each starts its transaction at once)", async () => {
+    const b1 = new IdbBackend("t-unload");
+    const s1 = new LocalStore(b1);
+    await s1.init();
+    for (let i = 0; i < 5; i++) {
+      s1.put("flashcard_state", `00-${i}`, { card_id: `00-${i}`, due: "2026-10-01" });
+      s1.put("review_log", `r${i}`, { card_id: `00-${i}` });
+    }
+    // no flush: the connection closes immediately, as when the tab is reloaded. Transactions
+    // already created still commit; writes still queued in JavaScript would be lost.
+    await b1.close();
+    const s2 = new LocalStore(new IdbBackend("t-unload"));
+    await s2.init();
+    expect(s2.all("flashcard_state")).toHaveLength(5);
+    expect(s2.all("review_log")).toHaveLength(5);
+  });
+
   it("timestamps strictly increase per record even within one millisecond", () => {
     const t = new Date("2026-01-01T00:00:00.000Z");
     expect(nextTimestamp(t, "2026-01-01T00:00:00.000Z")).toBe("2026-01-01T00:00:00.001Z");

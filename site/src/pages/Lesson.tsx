@@ -84,7 +84,8 @@ export function LessonPage() {
             </div>
           </section>
         ) : (
-          <section className="step" aria-labelledby="step-title" data-testid="step" data-step={step.id}>
+          // keyed by lesson and step: moving to another lesson never carries over a cell's state
+          <section key={`${lesson.id}/${step.id}`} className="step" aria-labelledby="step-title" data-testid="step" data-step={step.id}>
             <div className="row">
               <span className="sub">Step {stepIndex + 1} of {lesson.steps.length}</span>
               <span className="spacer" />

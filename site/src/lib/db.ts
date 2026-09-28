@@ -39,6 +39,7 @@ export const DB_NAME = "tsfm-rc";
 
 export class IdbBackend implements StorageBackend {
   private db: Promise<IDBPDatabase>;
+  private handle: IDBPDatabase | null = null;
   constructor(name = DB_NAME) {
     this.db = openDB(name, 1, {
       upgrade(db) {
@@ -46,6 +47,7 @@ export class IdbBackend implements StorageBackend {
         if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
       },
     });
+    void this.db.then((db) => (this.handle = db)).catch(() => {});
   }
   async loadAll() {
     const db = await this.db;
@@ -53,10 +55,17 @@ export class IdbBackend implements StorageBackend {
     for (const t of TABLES) out[t] = (await db.getAll(t)) as Rec[];
     return out;
   }
-  async putMany(table: Table, recs: Rec[]) {
-    const db = await this.db;
-    const tx = db.transaction(table, "readwrite");
-    await Promise.all([...recs.map((r) => tx.store.put(r)), tx.done]);
+  /** Starts the transaction synchronously (once the database is open) and commits it at once,
+   * so a write made just before the tab is reloaded or closed is not left waiting in a queue.
+   * IndexedDB runs read-write transactions on the same store in the order they were created. */
+  putMany(table: Table, recs: Rec[]): Promise<void> {
+    const write = (db: IDBPDatabase) => {
+      const tx = db.transaction(table, "readwrite");
+      for (const r of recs) tx.store.put(r).catch(() => {}); // a failure also rejects tx.done
+      tx.commit?.();
+      return tx.done;
+    };
+    return this.handle ? write(this.handle) : this.db.then(write);
   }
   async getMeta<T>(key: string) {
     return (await (await this.db).get("meta", key)) as T | undefined;
@@ -67,6 +76,10 @@ export class IdbBackend implements StorageBackend {
   async clear() {
     const db = await this.db;
     for (const t of [...TABLES, "meta"]) await db.clear(t);
+  }
+  /** Close the connection (tests: stands in for the page going away). */
+  async close() {
+    (await this.db).close();
   }
 }
 
@@ -108,7 +121,7 @@ export interface ExportFile {
 export class LocalStore {
   private maps = Object.fromEntries(TABLES.map((t) => [t, new Map<string, Rec>()])) as Record<Table, Map<string, Rec>>;
   private listeners = new Set<() => void>();
-  private pending: Promise<void> = Promise.resolve();
+  private pending = new Set<Promise<void>>();
   version = 0;
   ready = false;
   lastError: string | null = null;
@@ -132,19 +145,23 @@ export class LocalStore {
     for (const fn of this.listeners) fn();
   }
 
+  // Every change starts its IndexedDB write immediately (not queued behind earlier writes),
+  // so nothing is lost if the tab is reloaded or closed right after an action.
   private persist(table: Table, recs: Rec[]) {
     const copy = recs.map((r) => structuredClone(r));
-    this.pending = this.pending
-      .then(() => this.backend.putMany(table, copy))
+    const p: Promise<void> = this.backend
+      .putMany(table, copy)
       .catch((e) => {
         this.lastError = String(e);
         console.error("local save failed", e);
-      });
+      })
+      .finally(() => this.pending.delete(p));
+    this.pending.add(p);
   }
 
   /** Resolves when every write so far has reached IndexedDB. */
-  flush() {
-    return this.pending;
+  async flush() {
+    while (this.pending.size) await Promise.all([...this.pending]);
   }
 
   get<T>(table: Table, id: string): Rec<T> | undefined {
