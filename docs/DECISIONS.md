@@ -300,3 +300,141 @@ under the same target). The DM/MCS matrix uses a diverging blue–grey–red sca
 of relative loss with ★ (Holm-significant) and ● (in MCS) as secondary encodings, plus a
 table view. Light and dark themes are separately specified token sets; `#dark` / `#light`
 in the URL forces one.
+
+### D-039 — Test for the primary family at stride 1: Kiefer–Vogelsang fixed-b (Audit-01, amendment A4)
+**Question.** At stride 1, consecutive h-day targets overlap by h − 1 days. Which variance rule
+keeps a two-sided 5% DM-type test closest to its nominal size for the sample sizes of the
+clean windows (T ≈ 100–540)?
+**Design** (`src/tsfm_rc/eval/size_study.py`; re-run by
+`tests/test_stats.py::test_a4_size_grid_stride1`).
+- *Grid and replications:* T ∈ {100, 250, 450} origins one trading day apart,
+  h ∈ {1, 5, 20}, 5,000 replications per cell, seed 20260928. The Monte Carlo standard error
+  at 5% is ≈ 0.003.
+- *Null processes:* d_t = sum of h daily Gaussian AR(1) contributions with φ ∈ {0, 0.3, 0.6},
+  and `garch_sq`, a difference of squared h-day error sums sharing one GARCH(1,1) volatility
+  (a heavy-tailed, heteroskedastic MSE differential).
+- *Candidates:*
+  1. rectangular kernel, lag h − 1, HLN factor, t_{T−1}, falling back to Bartlett when the
+     estimate is non-positive;
+  2. Bartlett, lag max(h − 1, ⌊4(T/100)^{2/9}⌋), HLN, t_{T−1};
+  3. Kiefer–Vogelsang (2002) fixed-b: Bartlett with bandwidth T, no HLN, p-values from the
+     exact limiting distribution (`src/tsfm_rc/eval/fixedb.py`);
+  4. the Bartlett variance of (2) with fixed-b critical values for its own b = (L + 1)/T,
+     simulated under i.i.d. Gaussian data at the same T.
+- *Selection rule,* stated before the documented run: the smallest worst-case
+  |size − 0.05| over all 36 cells, ties broken by the mean |size − 0.05|. An exploratory run
+  with 2,000 replications and another seed gave the same ranking.
+
+**Result: candidate 3, KV fixed-b.** Worst-case error 0.072, mean 0.014, sizes 0.036–0.122.
+
+| test | worst-case size error | mean size error | size range |
+|---|---|---|---|
+| KV fixed-b | 0.072 | 0.014 | 0.036–0.122 |
+| Bartlett + fixed-b critical values | 0.109 | 0.050 | 0.045–0.159 |
+| Bartlett | 0.118 | 0.055 | 0.050–0.168 |
+| rectangular | 0.281 | 0.053 | 0.046–0.331 |
+
+The rectangular rule fails at h = 1 because its lag is then 0 and ignores any persistence.
+Full table (rejection rates at nominal 5%):
+
+| DGP | T | h | rectangular, lag h−1 (+HLN) | (non-positive share) | Bartlett, lag max(h−1, NW) (+HLN) | **KV fixed-b, b = 1** | Bartlett + fixed-b c.v. |
+|---|---|---|---|---|---|---|---|
+| ar0 | 100 | 1 | 0.051 | 0.000 | 0.061 | **0.051** | 0.045 |
+| ar0 | 100 | 5 | 0.064 | 0.000 | 0.110 | **0.060** | 0.105 |
+| ar0 | 100 | 20 | 0.152 | 0.005 | 0.159 | **0.114** | 0.150 |
+| ar0 | 250 | 1 | 0.053 | 0.000 | 0.056 | **0.048** | 0.052 |
+| ar0 | 250 | 5 | 0.057 | 0.000 | 0.112 | **0.056** | 0.113 |
+| ar0 | 250 | 20 | 0.088 | 0.000 | 0.127 | **0.074** | 0.120 |
+| ar0 | 450 | 1 | 0.051 | 0.000 | 0.056 | **0.057** | 0.052 |
+| ar0 | 450 | 5 | 0.052 | 0.000 | 0.096 | **0.051** | 0.094 |
+| ar0 | 450 | 20 | 0.068 | 0.000 | 0.118 | **0.062** | 0.114 |
+| ar0.3 | 100 | 1 | 0.152 | 0.000 | 0.086 | **0.057** | 0.069 |
+| ar0.3 | 100 | 5 | 0.068 | 0.000 | 0.125 | **0.064** | 0.118 |
+| ar0.3 | 100 | 20 | 0.144 | 0.007 | 0.148 | **0.111** | 0.139 |
+| ar0.3 | 250 | 1 | 0.144 | 0.000 | 0.068 | **0.049** | 0.064 |
+| ar0.3 | 250 | 5 | 0.063 | 0.000 | 0.122 | **0.056** | 0.122 |
+| ar0.3 | 250 | 20 | 0.089 | 0.000 | 0.131 | **0.075** | 0.125 |
+| ar0.3 | 450 | 1 | 0.143 | 0.000 | 0.064 | **0.046** | 0.061 |
+| ar0.3 | 450 | 5 | 0.059 | 0.000 | 0.109 | **0.058** | 0.108 |
+| ar0.3 | 450 | 20 | 0.070 | 0.000 | 0.120 | **0.061** | 0.115 |
+| ar0.6 | 100 | 1 | 0.331 | 0.000 | 0.139 | **0.064** | 0.118 |
+| ar0.6 | 100 | 5 | 0.092 | 0.000 | 0.166 | **0.068** | 0.159 |
+| ar0.6 | 100 | 20 | 0.158 | 0.006 | 0.168 | **0.122** | 0.156 |
+| ar0.6 | 250 | 1 | 0.328 | 0.000 | 0.123 | **0.056** | 0.117 |
+| ar0.6 | 250 | 5 | 0.079 | 0.000 | 0.153 | **0.054** | 0.153 |
+| ar0.6 | 250 | 20 | 0.085 | 0.000 | 0.130 | **0.079** | 0.124 |
+| ar0.6 | 450 | 1 | 0.321 | 0.000 | 0.112 | **0.060** | 0.109 |
+| ar0.6 | 450 | 5 | 0.081 | 0.000 | 0.135 | **0.056** | 0.134 |
+| ar0.6 | 450 | 20 | 0.076 | 0.000 | 0.126 | **0.063** | 0.120 |
+| garch_sq | 100 | 1 | 0.052 | 0.000 | 0.061 | **0.040** | 0.048 |
+| garch_sq | 100 | 5 | 0.055 | 0.000 | 0.077 | **0.042** | 0.071 |
+| garch_sq | 100 | 20 | 0.122 | 0.029 | 0.079 | **0.060** | 0.073 |
+| garch_sq | 250 | 1 | 0.051 | 0.000 | 0.054 | **0.040** | 0.052 |
+| garch_sq | 250 | 5 | 0.059 | 0.000 | 0.090 | **0.044** | 0.090 |
+| garch_sq | 250 | 20 | 0.072 | 0.003 | 0.081 | **0.043** | 0.075 |
+| garch_sq | 450 | 1 | 0.049 | 0.000 | 0.050 | **0.038** | 0.048 |
+| garch_sq | 450 | 5 | 0.046 | 0.000 | 0.074 | **0.036** | 0.072 |
+| garch_sq | 450 | 20 | 0.060 | 0.000 | 0.086 | **0.048** | 0.080 |
+
+**Power (information, not a selection criterion).** At a mean shift where an infeasible
+z-test with the true long-run variance has 80% power (AR(0) and AR(0.3), same grid,
+3,000 replications), KV rejected 0.60–0.72 and the other three 0.79–0.91. Part of their
+extra rejections is their size distortion. This is the known cost of b = 1. It is accepted
+because a wrong-size confirmatory test is worse than a less powerful one, and because stride
+1 gives about five times more origins than the stride-5 design, so power overall still
+rises.
+
+**Non-positive variance.** The KV variance equals 2T⁻²ΣS_t², a sum of squares. It is zero
+only if every d_t is equal; the test is then undefined, reported with p = NaN and flagged
+`zero_variance` (never replaced by another rule).
+
+**Residual problem.** At T = 100 and h = 20 the chosen test still rejects up to 12.2%.
+Every primary row reports the worst simulated size at the nearest simulated T not above its
+own T (`sim_size_max`), and rows with T < 100 stay flagged "small sample".
+
+**Scope.** The stride-5 secondary tests keep the A2 rule, so their tables are unchanged.
+
+### D-040 — Re-fit intervals in the stride-1 primary pass (Audit-01, A4)
+PREREGISTRATION §4 gives re-fit intervals "in origins" with their intent in brackets (GARCH
+≈ monthly, LightGBM ≈ yearly). At stride 1, "every 4 origins" would re-fit GARCH every 4
+trading days: five times more often than in the main pass, which is a different model. The
+primary pass therefore keeps the same interval in trading days:
+`refit_every(name, cfg, stride) = round(refit_every[name] × evaluation.stride / stride)`,
+giving GARCH/GJR every 20 origins and LightGBM every 250 at stride 1. Models without an entry
+re-fit at every origin in every pass, because "every origin" means "always use the latest
+data", not a fixed number of days. Tested in `tests/test_a4_primary.py`.
+
+### D-041 — How the primary pass is organised (Audit-01, A4)
+The stride-1 forecasts are a **separate pass with separate artifacts**:
+`forecasts_baselines_primary.parquet`, `forecasts_tsfm_primary.parquet` and
+`stats/losses_primary.parquet`. They are not merged into the stride-5 tables.
+
+*Why separate.* Inserting extra origins into the main walk-forward loop would shift every
+origin-counted re-fit and change the stride-5 forecasts, so the secondary tables would move.
+Keeping the passes apart guarantees the secondary tables are unchanged.
+
+*Which baselines.* The primary pass runs only what the stride-1 analyses need: each target's
+reference model and its placebo model, expanding window.
+
+*Where the baselines start.* From the earliest possible clean start (earliest documented
+release + 30 days). The A1 effective release can only be later, so every model's actual
+window is covered without knowing the weight dates before the baseline stage.
+
+*Where each TSFM starts.* From its own clean start, computed after its weights are resolved.
+Origins shared with the stride-5 grid hit the output cache.
+
+*Size.* `losses_primary.parquet` of `default_fixtures` is ignored by git (like `losses.parquet`,
+re-derivable).
+
+### D-042 — Proving the secondary tables are unchanged (Audit-01, A4)
+`tests/data/pre_a4_table_fingerprints.json` holds per-column SHA-256 fingerprints (row order,
+dtype, every cell via `pandas.util.hash_pandas_object`) of every secondary table committed
+before A4 (Build 08 artifacts, commit `1433711`). This covers the smoke run's 12 tables and
+the `default_fixtures` run's 11; its `losses.parquet` was never committed.
+`tests/test_a4_primary.py::test_secondary_tables_unchanged_by_a4` recomputes the fingerprints
+of the committed tables and requires the same row count and an identical hash for every
+pre-A4 column. Columns added later (for example by Audit-01 fix 3) are allowed. A fingerprint
+test was chosen over storing copies of the tables because CI checks out a shallow clone
+without history. The same comparison was also done directly with
+`pandas.testing.assert_frame_equal` against the Build 08 files when the artifacts were
+regenerated (BUILD-REPORT §10).

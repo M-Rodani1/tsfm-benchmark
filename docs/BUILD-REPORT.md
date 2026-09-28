@@ -42,6 +42,22 @@ All timings are from the build container (4 CPU cores, 15 GB RAM, no GPU).
 | `make reproduce` (`configs/default.yaml`) | real Yahoo data | — | **not run**: Yahoo and Hugging Face blocked |
 | Test suite (`make test`) | fixtures + simulations | TSFM adapters with random weights | ≈ 2.5 min locally, ≈ 3 min in CI |
 
+**Amendment A4 (Audit-01) cost.** The primary family now uses stride-1 origins in the clean
+windows (a separate *primary pass*; see §10).
+- *Baselines:* one extra pass with 2 models per (asset, target), expanding window only, over
+  ≈ 541 origins (from 2024-07-30). On the fixtures it adds ≈ 15 s to `make smoke` and about a
+  minute to `make reproduce-fixtures`.
+- *TSFMs:* only the in-window origins that are not on the stride-5 grid are new (the output
+  cache serves the rest). On the default calendar:
+
+  | model | stride-1 clean origins | new origins | new requests | vs its stride-5 requests (45,864) |
+  |---|---|---|---|---|
+  | Chronos-Bolt | ≈ 439 | 352 | 27,456 | +60% |
+  | TimesFM 2.5 | ≈ 238 | 191 | 14,898 | +32% |
+  | Moirai 1.1 | ≈ 541 | 433 | 33,774 | +74% |
+
+  Counts use an approximate holiday calendar.
+
 Extrapolation (not a measurement): the default baselines on 26 real assets should take about
 15 minutes on 4 cores; TSFM inference is unmeasured (Chronos-Bolt tiny should be fast;
 TimesFM 200M with flip-invariance doubles its forward passes; Moirai draws 100 samples).

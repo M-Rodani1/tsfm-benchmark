@@ -19,6 +19,7 @@ evaluation:
   windows: [expanding]
   rolling_length: 750
   primary_window: expanding
+  primary_stride: 1          # amendment A4: stride-1 origins inside each TSFM clean window
 
 models:
   context_length: 512

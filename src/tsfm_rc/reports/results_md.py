@@ -131,21 +131,27 @@ def _summary(T: dict, status: dict, cfg: RunConfig) -> list[str]:
 
 def _primary(T: dict) -> list[str]:
     L = ["## 2. Pre-registered primary tests (27)", "",
-         "Each TSFM vs the pre-registered reference baseline (returns: `zero`, rv: `har`, volume: `har`) on the "
-         "model's own **clean** window, pooled across assets, expanding window, primary loss. Relative loss < 1 "
-         "means the TSFM is better. DM-HLN two-sided p-values; Holm over the family.", ""]
+         "Each TSFM vs the pre-registered reference baseline (returns: `zero`, rv: `har`, volume: `har`) on "
+         "**stride-1 origins inside the model's own clean window** (amendment A4), pooled across assets, expanding "
+         "window, primary loss. Relative loss < 1 means the TSFM is better. Test: Kiefer–Vogelsang fixed-b "
+         "(Bartlett kernel, bandwidth T) with its own two-sided p-values; Holm over the family. "
+         "\"sim. size\" is the worst rejection rate of this test under the null in the A4 simulation at the "
+         "nearest simulated sample size not above T (nominal 5%; DECISIONS D-039).", ""]
     P = T["dm_primary"]
     if P.empty:
         return L + ["*(not computed)*", ""]
     rows = []
     for r in P.itertuples(index=False):
         if r.status != "AVAILABLE":
-            rows.append([r.model, r.target, r.horizon, r.reference, "UNAVAILABLE", "–", "–", "–", "–", "–"])
+            rows.append([r.model, r.target, r.horizon, r.reference, "UNAVAILABLE", "–", "–", "–", "–", "–", "–"])
             continue
         verdict = "TSFM better" if r.reject_holm and r.mean_diff < 0 else "TSFM worse" if r.reject_holm else "no detectable difference"
+        size = getattr(r, "sim_size_max", np.nan)
         rows.append([r.model, r.target, r.horizon, r.reference, ci(r.rel_loss, r.rel_loss_lo, r.rel_loss_hi),
-                     f2(r.dm_stat), fp(r.p_value), fp(r.p_holm), int(r.T), verdict + (f" ({r.flag})" if r.flag else "")])
-    df = pd.DataFrame(rows, columns=["model", "target", "h", "reference", "rel. loss [95% CI]", "DM", "p", "Holm p", "T", "verdict"])
+                     f2(r.dm_stat), fp(r.p_value), fp(r.p_holm), int(r.T), f3(size) if np.isfinite(size) else "T < 100",
+                     verdict + (f" ({r.flag})" if r.flag else "")])
+    df = pd.DataFrame(rows, columns=["model", "target", "h", "reference", "rel. loss [95% CI]", "t (KV)", "p", "Holm p", "T",
+                                     "sim. size", "verdict"])
     return L + [md_table(df)]
 
 
@@ -275,7 +281,9 @@ def _contamination(T: dict, fig_links: dict) -> list[str]:
     L = ["## 8. Contamination control", "",
          "Δ = ln R_clean − ln R_seen with R = (TSFM loss)/(reference loss); Δ > 0 would be consistent with "
          "memorisation. Placebo rows apply the same statistic to baselines that cannot memorise, on the same "
-         "windows, to show how much market-regime differences alone move Δ.", ""]
+         "windows, to show how much market-regime differences alone move Δ. The seen side uses the main stride-5 "
+         "origins; the clean side uses the stride-1 origins of the primary pass (amendment A4), each resampled "
+         "with a block length set by its own overlap.", ""]
     W = T["windows"]
     if len(W):
         L += [md_table(W[["model", "release_date", "weights_date", "effective_release", "clean_start", "common_clean_start"]].astype(str))]
@@ -369,8 +377,9 @@ def _limitations(T: dict, prov: dict, status: dict) -> list[str]:
         "- **Pretraining corpora are only partly documented.** See the verification tags in `docs/PRETRAINING-DATA.md`; "
         "a null contamination result is not proof that the models never saw these series.",
         "- **Regime confounding.** Seen and clean windows are different market periods; the placebo only partly controls for this.",
-        "- **Amendments.** The design was amended three times before any real-data result existed (A1–A3 in "
-        "`docs/PREREGISTRATION.md`).",
+        "- **Amendments.** The design was amended four times before any real-data or TSFM result existed (A1–A4 in "
+        "`docs/PREREGISTRATION.md`). A4 moved the primary family to stride-1 origins with a fixed-b test; its "
+        "simulation still shows over-rejection for h = 20 at small T (up to ≈ 12% at T = 100).",
         "- **Economic evaluation** is a single illustrative strategy with no significance testing.",
         "",
     ]

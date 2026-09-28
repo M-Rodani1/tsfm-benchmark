@@ -80,7 +80,8 @@ for name, r in [("honest", honest), ("memoriser", cheat)]:
 # The **synthetic control** feeds every model simulated series nobody has seen, where the
 # optimal forecast is known: it measures skill without any possibility of recall.
 #
-# **Limits:** short clean windows (≈ 1 year for TimesFM 2.5) mean low power; a null result
+# **Limits:** short clean windows (≈ 1 year for TimesFM 2.5; A4 uses every trading day in
+# them to gain power) and regime differences between windows; a null result
 # is "no evidence", not "proof of no contamination"; training corpora are only partly
 # documented (see the tags in `docs/PRETRAINING-DATA.md`).
 #

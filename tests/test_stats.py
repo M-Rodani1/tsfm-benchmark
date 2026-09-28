@@ -10,7 +10,8 @@ import pytest
 from scipy import stats
 
 from tsfm_rc.eval.bootstrap import block_length, stationary_bootstrap_indices
-from tsfm_rc.eval.dm import dm_test, long_run_variance, nw_lag, overlap_order
+from tsfm_rc.eval.dm import dm_test, h_eff_for, long_run_variance, nw_lag, overlap_order
+from tsfm_rc.eval.fixedb import kv_critical_value, kv_long_run_variance, kv_pvalue
 from tsfm_rc.eval.mcs import model_confidence_set
 from tsfm_rc.eval.metrics import (
     crps_from_quantiles,
@@ -155,6 +156,69 @@ def test_dm_size_no_overlap():
     T, R = 300, 2000
     rej = sum(dm_test(rng.standard_normal(T)).pvalue < 0.05 for _ in range(R))
     assert 0.035 <= rej / R <= 0.065, rej / R
+
+
+# ============================================================ amendment A4: fixed-b test, stride 1
+def test_kv_variance_is_bartlett_with_bandwidth_T():
+    rng = np.random.default_rng(0)
+    for T in (5, 57, 300):
+        d = rng.standard_normal(T) + 0.3
+        assert kv_long_run_variance(d) == pytest.approx(long_run_variance(d, T - 1, "bartlett"), rel=1e-12)
+
+
+def test_kv_pvalues_reproduce_published_critical_values():
+    """Kiefer & Vogelsang (2002), Bartlett kernel, M = T: right-tail 90/95/97.5/99% critical
+    values 2.740 / 3.764 / 4.771 / 6.090, i.e. two-sided p = 0.20 / 0.10 / 0.05 / 0.02."""
+    for c, p in [(2.740, 0.20), (3.764, 0.10), (4.771, 0.05), (6.090, 0.02)]:
+        assert kv_pvalue(c) == pytest.approx(p, abs=2e-4)
+        assert kv_pvalue(-c) == kv_pvalue(c)
+    assert kv_critical_value(0.05) == pytest.approx(4.771, abs=1e-3)
+    assert kv_pvalue(0.0) == 1.0 and kv_pvalue(50.0) < 1e-6
+
+
+def test_kv_limit_distribution_by_simulation():
+    """Independent check of the closed form: simulate the statistic under i.i.d. data (T = 400)."""
+    rng = np.random.default_rng(11)
+    D = rng.standard_normal((20000, 400))
+    dbar = D.mean(1)
+    S = np.cumsum(D - dbar[:, None], axis=1)
+    t = dbar / np.sqrt(2.0 * (S**2).sum(1) / 400**2 / 400)
+    for c in (2.740, 4.771):
+        assert np.mean(np.abs(t) > c) == pytest.approx(kv_pvalue(c), abs=0.008)
+
+
+def test_dm_test_kv_method():
+    rng = np.random.default_rng(4)
+    d = rng.standard_normal(250) + 0.1
+    r = dm_test(d, h_eff=20, method="kv_b1")
+    assert r.method == "kv_b1" and r.lag == 249 and r.h_eff == 20
+    assert r.stat == pytest.approx(d.mean() / math.sqrt(kv_long_run_variance(d) / 250))
+    assert r.pvalue == pytest.approx(kv_pvalue(r.stat))
+    assert dm_test(np.ones(40), method="kv_b1").flag == "zero_variance"  # variance >= 0 always; = 0 only if constant
+    with pytest.raises(ValueError):
+        dm_test(d, method="bogus")
+    assert [h_eff_for(h, 1) for h in (1, 5, 20)] == [1, 5, 20]
+    assert [h_eff_for(h, 5) for h in (1, 5, 20)] == [1, 1, 4]
+
+
+@pytest.mark.slow
+def test_a4_size_grid_stride1():
+    """The A4 simulation (DECISIONS D-039) re-run with fewer replications: stride-1 origins,
+    T in {100, 250, 450}, h in {1, 5, 20}, four null DGPs. The fixed-b test must again have
+    the smallest worst-case size distortion, and its sizes must agree with the documented
+    run (KV_SIM_MAX_SIZE) within Monte Carlo error."""
+    from tsfm_rc.eval.size_study import KV_SIM_MAX_SIZE, size_grid, summarise
+
+    R = 1500
+    g = size_grid(R=R, seed=7)
+    summ = summarise(g)
+    assert summ.iloc[0]["test"] == "kv_b1", summ
+    assert summ.set_index("test").loc["kv_b1", "max_size"] < 0.14
+    assert summ.set_index("test").loc["rect", "max_size"] > 0.25  # lag 0 at h = 1 ignores persistence
+    worst = g.groupby(["T", "h"])["kv_b1"].max()
+    for (T, h), documented in KV_SIM_MAX_SIZE.items():
+        se = math.sqrt(documented * (1 - documented) / R)
+        assert abs(worst[(T, h)] - documented) < 4.5 * se + 0.01, (T, h, worst[(T, h)], documented)
 
 
 def test_dm_power_against_shift():

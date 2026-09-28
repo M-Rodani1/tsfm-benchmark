@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from tsfm_rc.eval.dm import dm_test, long_run_variance
+from tsfm_rc.eval.fixedb import kv_critical_value
 from tsfm_rc.eval.mcs import model_confidence_set
 from tsfm_rc.eval.multiple import holm
 
@@ -69,6 +70,16 @@ print({key: v / 400 for key, v in rej.items()})
 # %% [markdown]
 # This check is why amendment A2 exists (`docs/PREREGISTRATION.md`). Amendments are allowed;
 # silent changes are not.
+#
+# An audit then found the clean windows too short at stride 5 (≈ 48 origins for TimesFM).
+# Amendment A4 uses *every* trading day there, and a bigger simulation picked the
+# Kiefer–Vogelsang **fixed-b** test: bandwidth = T, with its own critical value.
+
+# %%
+print(f"fixed-b 5% critical value: {kv_critical_value(0.05):.2f} (normal: 1.96)")
+print(dm_test(d, h_eff=4, method="kv_b1"))
+
+# %% [markdown]
 #
 # ## 4. Many tests
 # The primary family has 27 tests. If nothing is really different:

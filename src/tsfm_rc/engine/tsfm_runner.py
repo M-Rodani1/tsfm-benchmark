@@ -23,7 +23,13 @@ import pandas as pd
 
 from tsfm_rc.config import RunConfig, TSFMSpec
 from tsfm_rc.data.targets import make_target
-from tsfm_rc.engine.walkforward import MAX_STALENESS_DAYS, build_origins, label_end_date, qcol
+from tsfm_rc.engine.walkforward import (
+    MAX_STALENESS_DAYS,
+    build_origins,
+    build_primary_origins,
+    label_end_date,
+    qcol,
+)
 from tsfm_rc.hashing import sha256_array, sha256_json
 from tsfm_rc.models.tsfm import (
     DECILES,
@@ -194,6 +200,38 @@ def run_tsfms(
         status[name]["seconds"] = round(time.time() - t0, 1)
     fc = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
     return fc, status
+
+
+def run_tsfms_primary(
+    daily: dict[str, pd.DataFrame],
+    calendar: pd.DatetimeIndex,
+    cfg: RunConfig,
+    loaded: tuple[dict[str, TSFMBackend], dict[str, dict]],
+    *,
+    use_cache: bool = True,
+) -> pd.DataFrame:
+    """Primary pass (amendment A4): each available TSFM at stride-``primary_stride`` origins
+    from its own clean-window start (effective release + buffer), expanding window only.
+
+    Origins shared with the main (stride-5) pass hit the output cache, so only the extra
+    in-window origins cost inference. Timing per model is written into ``status``.
+    """
+    from tsfm_rc.contamination.windows import windows_for_models
+
+    backends, status = loaded
+    windows = windows_for_models(cfg, status)
+    cache = TSFMCache(resolve(cfg.cache_dir)) if use_cache else None
+    specs = {s.name: s for s in cfg.enabled_tsfms()}
+    parts = []
+    for name, backend in backends.items():
+        t0 = time.time()
+        origins = build_primary_origins(calendar, cfg, start=windows[name].clean_start)
+        fc = forecast_with_backend(backend, specs[name], daily, origins, cfg, cache)
+        status[name]["primary_pass_seconds"] = round(time.time() - t0, 1)
+        status[name]["primary_pass_origins"] = len(origins)
+        if len(fc):
+            parts.append(fc[fc["window"] == cfg.evaluation.primary_window])
+    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
 
 
 def write_status(status: dict, path: str | Path) -> None:

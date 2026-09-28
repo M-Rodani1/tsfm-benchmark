@@ -54,7 +54,7 @@ If Yahoo blocks you, put Yahoo-format CSVs in a folder and set `provider: csv` a
 
 | Path | Contents |
 |---|---|
-| `docs/PREREGISTRATION.md` | The analysis plan, fixed before any result, with dated amendments A1–A3 |
+| `docs/PREREGISTRATION.md` | The analysis plan, fixed before any result, with dated amendments A1–A4 |
 | `docs/DECISIONS.md` | Every judgment call and why |
 | `docs/PRETRAINING-DATA.md` | What each TSFM was trained on, with verification tags |
 | `docs/GLOSSARY.md` | Short definitions of every term |

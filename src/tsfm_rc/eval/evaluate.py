@@ -7,12 +7,15 @@ Tables
 ------
 losses            row-level losses (raw and normalised) with window labels
 metrics           mean losses, OOS R^2, directional accuracy (per asset and pooled)
-dm_primary        the 27 pre-registered tests (TSFM vs reference, clean window), Holm
+losses_primary    row-level losses of the stride-1 primary pass (amendment A4)
+dm_primary        the 27 pre-registered tests (TSFM vs reference, stride-1 origins in the
+                  model's clean window, Kiefer-Vogelsang fixed-b test; A4), Holm
 dm_all            every model vs reference, per window variant and evaluation period, Holm
 dm_per_asset      per-asset tests, Holm within family
 mcs               Model Confidence Sets (pooled and per asset)
 probabilistic     h=1 CRPS (quantile approximation) and DM vs probabilistic reference
-contamination     seen-vs-clean Delta per TSFM and placebo pairs, Holm over TSFM tests
+contamination     seen (stride 5) vs clean (stride 1, A4) Delta per TSFM and placebo pairs,
+                  Holm over TSFM tests
 economic          volatility-targeting backtest (illustrative)
 loss_diff_series  pooled loss differential per origin (for the dashboard's time plot)
 synthetic         synthetic-control losses relative to the oracle
@@ -30,7 +33,7 @@ from tsfm_rc.contamination.windows import common_clean_start, windows_for_models
 from tsfm_rc.engine.walkforward import qcol
 from tsfm_rc.eval.bootstrap import block_length
 from tsfm_rc.eval.contamination_test import contamination_delta
-from tsfm_rc.eval.dm import dm_test, overlap_order
+from tsfm_rc.eval.dm import dm_test, h_eff_for, overlap_order
 from tsfm_rc.eval.economic import backtest, buy_and_hold
 from tsfm_rc.eval.mcs import model_confidence_set
 from tsfm_rc.eval.metrics import (
@@ -45,6 +48,7 @@ from tsfm_rc.eval.metrics import (
 )
 from tsfm_rc.eval.multiple import holm
 from tsfm_rc.eval.pooled import paired_pooled, pooled_matrix, pretest_scales, ratio_ci
+from tsfm_rc.eval.size_study import kv_simulated_size
 from tsfm_rc.seeding import derive_seed
 
 log = logging.getLogger(__name__)
@@ -126,11 +130,15 @@ def metrics_table(L: pd.DataFrame, cfg: RunConfig, periods: list[str]) -> pd.Dat
     return pd.DataFrame(rows)
 
 
-def _dm_row(pp: pd.DataFrame, h: int, cfg: RunConfig, seed_keys: tuple) -> dict:
-    stride = cfg.evaluation.stride
-    h_eff = overlap_order(h, stride) + 1
+def _dm_row(pp: pd.DataFrame, h: int, cfg: RunConfig, seed_keys: tuple, *, stride: int | None = None,
+            method: str = "hln") -> dict:
+    """DM test + relative loss with bootstrap CI. ``stride`` is the spacing of the origins in
+    ``pp`` (default: the main schedule); it sets h_eff for the variance rule and the block
+    length, so overlapping targets are handled the same way in the test and in the CI."""
+    stride = cfg.evaluation.stride if stride is None else stride
+    h_eff = h_eff_for(h, stride)
     d = (pp["m"] - pp["ref"]).to_numpy()
-    r = dm_test(d, h_eff=h_eff)
+    r = dm_test(d, h_eff=h_eff, method=method)
     rng = np.random.default_rng(derive_seed(cfg.seed, *seed_keys))
     ratio, lo, hi = ratio_ci(pp["m"].to_numpy(), pp["ref"].to_numpy(), cfg.stats.n_bootstrap, block_length(len(pp), h_eff), rng)
     flags = [f for f in (r.flag, "small_sample" if r.T < SMALL_SAMPLE_T else "") if f]
@@ -143,7 +151,14 @@ def _dm_row(pp: pd.DataFrame, h: int, cfg: RunConfig, seed_keys: tuple) -> dict:
     }
 
 
-def dm_primary(L: pd.DataFrame, cfg: RunConfig, status: dict) -> pd.DataFrame:
+def dm_primary(LP: pd.DataFrame | None, cfg: RunConfig, status: dict) -> pd.DataFrame:
+    """The 27 confirmatory tests on the stride-1 primary pass (amendment A4).
+
+    ``LP`` holds the losses of the primary pass only (stride ``primary_stride`` origins); the
+    main stride-5 losses are never used here. Test: Kiefer-Vogelsang fixed-b (bandwidth T),
+    h_eff = h at stride 1 for the block length of the relative-loss CI.
+    """
+    stride = cfg.evaluation.primary_stride
     rows = []
     for spec in cfg.models.tsfms:
         m = spec.name
@@ -153,13 +168,20 @@ def dm_primary(L: pd.DataFrame, cfg: RunConfig, status: dict) -> pd.DataFrame:
             loss = PRIMARY_LOSS[kind]
             for h in cfg.targets.horizons:
                 base = {"model": m, "target": kind, "horizon": h, "reference": ref, "loss": loss,
-                        "period": f"clean:{m}", "status": "AVAILABLE" if avail else "UNAVAILABLE"}
+                        "period": f"clean:{m}", "status": "AVAILABLE" if avail else "UNAVAILABLE",
+                        "stride": stride, "method": "kv_b1"}
                 if not avail:
                     rows.append({**base, "p_value": np.nan, "flag": status.get(m, {}).get("reason", "")[:200]})
                     continue
-                S = L[(L["target"] == kind) & (L["horizon"] == h) & (L["window"] == "expanding") & (L[f"win_{m}"] == "clean")]
+                if LP is None or LP.empty:
+                    rows.append({**base, "p_value": np.nan, "T": 0, "flag": "no_primary_pass_forecasts"})
+                    continue
+                S = LP[(LP["target"] == kind) & (LP["horizon"] == h) & (LP["window"] == cfg.evaluation.primary_window)
+                       & (LP[f"win_{m}"] == "clean")]
                 pp = paired_pooled(S, m, ref, f"{loss}_n")
-                rows.append({**base, **_dm_row(pp, h, cfg, ("dm_primary", m, kind, h))})
+                row = {**base, **_dm_row(pp, h, cfg, ("dm_primary", m, kind, h), stride=stride, method="kv_b1")}
+                row["sim_size_max"] = kv_simulated_size(int(row["T"]), h)
+                rows.append(row)
     df = pd.DataFrame(rows)
     df["p_holm"], df["reject_holm"] = holm(df["p_value"].to_numpy(), cfg.stats.alpha)
     df["tsfm_better"] = df["reject_holm"] & (df.get("mean_diff", pd.Series(np.nan, index=df.index)) < 0)
@@ -305,7 +327,10 @@ def probabilistic_table(L: pd.DataFrame, cfg: RunConfig, periods: list[str]) -> 
     return pd.concat(rows, ignore_index=True) if rows else pd.DataFrame()
 
 
-def contamination_table(L: pd.DataFrame, cfg: RunConfig, status: dict) -> pd.DataFrame:
+def contamination_table(L: pd.DataFrame, LP: pd.DataFrame | None, cfg: RunConfig, status: dict) -> pd.DataFrame:
+    """Seen side from the main stride-5 pass ``L``; clean side from the stride-1 primary pass
+    ``LP`` (amendment A4). Each side's bootstrap block length uses its own h_eff."""
+    LP = LP if LP is not None else L.iloc[0:0]
     rows = []
     for spec in cfg.models.tsfms:
         w = spec.name
@@ -316,16 +341,19 @@ def contamination_table(L: pd.DataFrame, cfg: RunConfig, status: dict) -> pd.Dat
             candidates = ([(w, "tsfm")] if avail else []) + [(b, "placebo") for b in cfg.contamination.placebo_pairs.get(kind, [])]
             for h in cfg.targets.horizons:
                 S = L[(L["target"] == kind) & (L["horizon"] == h) & (L["window"] == "expanding")]
-                h_eff = overlap_order(h, cfg.evaluation.stride) + 1
+                SP = LP[(LP["target"] == kind) & (LP["horizon"] == h) & (LP["window"] == "expanding")] if len(LP) else LP
+                h_eff = h_eff_for(h, cfg.evaluation.stride)
+                h_eff_clean = h_eff_for(h, cfg.evaluation.primary_stride)
                 if not avail:
                     rows.append({"windows_of": w, "model": w, "role": "tsfm", "target": kind, "horizon": h,
                                  "reference": ref, "status": "UNAVAILABLE"})
                 for m, role in candidates:
                     seen = paired_pooled(S[S[f"win_{w}"] == "seen"], m, ref, loss)
-                    clean = paired_pooled(S[S[f"win_{w}"] == "clean"], m, ref, loss)
+                    clean = (paired_pooled(SP[SP[f"win_{w}"] == "clean"], m, ref, loss) if len(SP)
+                             else pd.DataFrame(columns=["m", "ref", "n_assets"]))
                     rng = np.random.default_rng(derive_seed(cfg.seed, "contam", w, m, kind, h))
                     res = contamination_delta(seen["m"], seen["ref"], clean["m"], clean["ref"],
-                                              B=cfg.stats.n_bootstrap, h_eff=h_eff, rng=rng)
+                                              B=cfg.stats.n_bootstrap, h_eff=h_eff, h_eff_clean=h_eff_clean, rng=rng)
                     rows.append({"windows_of": w, "model": m, "role": role, "target": kind, "horizon": h,
                                  "reference": ref, "status": "AVAILABLE", **res})
     df = pd.DataFrame(rows)
@@ -403,10 +431,18 @@ def evaluate(
     status: dict,
     fc_syn: pd.DataFrame | None = None,
     kappa: float = 1.0,
+    *,
+    fc_primary: pd.DataFrame | None = None,
 ) -> dict[str, pd.DataFrame]:
+    """``fc``: main-pass forecasts (stride 5); ``fc_primary``: the stride-1 primary pass
+    (amendment A4). Only ``dm_primary`` and the clean side of ``contamination`` read
+    ``fc_primary``; every other table is computed from ``fc`` exactly as before A4."""
     scales = pretest_scales(daily, cfg.targets.kinds, cfg.targets.horizons, cfg.evaluation.test_start)
     L = add_losses(fc, cfg, scales)
     L, windows, ccs = add_window_labels(L, cfg, status)
+    LP = None
+    if fc_primary is not None and len(fc_primary):
+        LP, _, _ = add_window_labels(add_losses(fc_primary, cfg, scales), cfg, status)
     periods = ["full", "common_clean"]
     log.info("evaluating %d loss rows; common clean window starts %s", len(L), ccs)
     out: dict[str, pd.DataFrame] = {}
@@ -414,13 +450,14 @@ def evaluate(
     out["scales"] = scales
     out["windows"] = pd.DataFrame([w.as_dict() for w in windows.values()]).assign(common_clean_start=str(ccs.date()) if ccs is not None else None)
     out["metrics"] = metrics_table(L, cfg, periods)
-    out["dm_primary"] = dm_primary(L, cfg, status)
+    out["losses_primary"] = LP if LP is not None else pd.DataFrame()
+    out["dm_primary"] = dm_primary(LP, cfg, status)
     out["dm_all"] = dm_all(L, cfg, periods)
     out["loss_diff_series"] = diff_series(L, cfg)
     out["dm_per_asset"] = dm_per_asset(L, cfg, status)
     out["mcs"] = mcs_table(L, cfg, periods)
     out["probabilistic"] = probabilistic_table(L, cfg, periods)
-    out["contamination"] = contamination_table(L, cfg, status)
+    out["contamination"] = contamination_table(L, LP, cfg, status)
     out["economic"] = economic_table(L[L["target"] == "rv"], daily, cfg, periods)
     out["synthetic"] = synthetic_table(fc_syn, cfg, kappa)
     missing = fc["y_true"].isna().groupby([fc["target"], fc["horizon"]]).sum().rename("n_missing_target").reset_index()

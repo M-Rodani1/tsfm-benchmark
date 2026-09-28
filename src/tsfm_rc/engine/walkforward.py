@@ -11,6 +11,15 @@ forecast origins in order. At each origin it:
 
 Output: one row per (asset, target, model, window, origin, horizon) in a long DataFrame
 with the quantile columns q10..q90 filled for h = 1 where the model provides them.
+
+Two passes use this engine (amendment A4):
+
+- the **main pass**: every baseline, both windows, origins every ``evaluation.stride`` days
+  over the whole test period (all secondary analyses, the possibly-seen side);
+- the **primary pass**: only the reference and placebo baselines, expanding window, origins
+  every ``evaluation.primary_stride`` (= 1) day from the earliest possible clean-window start.
+  Re-fit intervals are rescaled to the same number of trading days (DECISIONS D-040), and
+  the main pass is not touched, so every secondary table is unchanged by A4.
 """
 
 from __future__ import annotations
@@ -60,12 +69,36 @@ class Task:
     kind: str
     window: str
     models: tuple[str, ...]
+    stride: int | None = None  # None = main schedule (evaluation.stride)
 
 
 def build_origins(calendar: pd.DatetimeIndex, cfg: RunConfig) -> list[ForecastOrigin]:
     ev = cfg.evaluation
     # min_train_obs is enforced per asset in the loop; the schedule starts at test_start.
     return make_origin_schedule(calendar, ev.test_start, ev.stride, min_train_obs=1, end=cfg.data.end)
+
+
+def primary_pass_start(cfg: RunConfig) -> pd.Timestamp:
+    """Earliest possible clean-window start over the configured TSFMs: documented release date
+    + buffer. The effective release (A1) is never earlier than the documented one, so every
+    model's actual clean window lies inside [this date, end]."""
+    buffer = pd.Timedelta(days=cfg.contamination.buffer_days)
+    starts = [pd.Timestamp(s.release_date) + buffer for s in cfg.models.tsfms]
+    test_start = pd.Timestamp(cfg.evaluation.test_start)
+    return max(test_start, min(starts)) if starts else test_start
+
+
+def build_primary_origins(calendar: pd.DatetimeIndex, cfg: RunConfig, start: pd.Timestamp | None = None) -> list[ForecastOrigin]:
+    """Stride-``primary_stride`` origins from ``start`` (default: :func:`primary_pass_start`)."""
+    start = primary_pass_start(cfg) if start is None else max(pd.Timestamp(start), pd.Timestamp(cfg.evaluation.test_start))
+    return make_origin_schedule(calendar, start, cfg.evaluation.primary_stride, min_train_obs=1, end=cfg.data.end)
+
+
+def primary_pass_models(cfg: RunConfig, kind: str) -> tuple[str, ...]:
+    """Baselines needed on stride-1 clean-window origins: the reference (primary family) and
+    the placebo models (clean side of the contamination test)."""
+    names = [cfg.models.reference[kind], *cfg.contamination.placebo_pairs.get(kind, [])]
+    return tuple(dict.fromkeys(n for n in names if n in cfg.models.baselines[kind]))
 
 
 def window_slice(hist: pd.DataFrame, window: str, cfg: RunConfig) -> pd.DataFrame:
@@ -82,7 +115,7 @@ def run_task(daily: pd.DataFrame, task: Task, origins: Sequence[ForecastOrigin],
     for name in task.models:
         seed = derive_seed(cfg.seed, task.ticker, task.kind, task.window, name)
         model = make_baseline(name, task.kind, cfg, seed)
-        k_refit = refit_every(name, cfg)
+        k_refit = refit_every(name, cfg, task.stride)
         since_fit = None
         t0 = time.time()
         for o in origins:
@@ -126,7 +159,7 @@ def _run_task_star(args) -> pd.DataFrame:
 
 
 def run_baselines(daily: dict[str, pd.DataFrame], calendar: pd.DatetimeIndex, cfg: RunConfig, n_jobs: int | None = None) -> pd.DataFrame:
-    """Run every configured baseline for every asset, target and window."""
+    """Main pass: every configured baseline for every asset, target and window."""
     origins = build_origins(calendar, cfg)
     tasks = [
         Task(t, kind, window, tuple(cfg.models.baselines[kind]))
@@ -134,6 +167,22 @@ def run_baselines(daily: dict[str, pd.DataFrame], calendar: pd.DatetimeIndex, cf
         for kind in cfg.targets.kinds
         for window in cfg.evaluation.windows
     ]
+    return _run_tasks(daily, tasks, origins, cfg, n_jobs)
+
+
+def run_primary_baselines(daily: dict[str, pd.DataFrame], calendar: pd.DatetimeIndex, cfg: RunConfig, n_jobs: int | None = None) -> pd.DataFrame:
+    """Primary pass (A4): reference + placebo baselines, expanding window, stride-1 origins."""
+    origins = build_primary_origins(calendar, cfg)
+    tasks = [
+        Task(t, kind, cfg.evaluation.primary_window, primary_pass_models(cfg, kind), stride=cfg.evaluation.primary_stride)
+        for t in daily
+        for kind in cfg.targets.kinds
+    ]
+    return _run_tasks(daily, tasks, origins, cfg, n_jobs)
+
+
+def _run_tasks(daily: dict[str, pd.DataFrame], tasks: list[Task], origins: list[ForecastOrigin], cfg: RunConfig,
+               n_jobs: int | None) -> pd.DataFrame:
     n_jobs = n_jobs or cfg.n_jobs
     log.info("walk-forward: %d tasks, %d origins, n_jobs=%d", len(tasks), len(origins), n_jobs)
     args = [(daily[t.ticker], t, origins, cfg) for t in tasks]

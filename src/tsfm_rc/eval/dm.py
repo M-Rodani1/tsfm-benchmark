@@ -20,6 +20,11 @@ Carlo showed 9-12% rejections at nominal 5% for 20-day targets sampled every 5 d
 
 A non-positive variance (possible with the rectangular kernel) falls back to the Bartlett
 kernel with the same lag, then to lag 0, and the result is flagged; never silently ignored.
+
+Amendment A4 (primary family and stride-1 origins only): ``method="kv_b1"`` uses the
+Kiefer-Vogelsang fixed-b test (Bartlett kernel, bandwidth M = T, no HLN factor) with its own
+limiting distribution (:mod:`tsfm_rc.eval.fixedb`). Chosen by the size simulation in
+DECISIONS D-039; the variance is a sum of squares and cannot be negative.
 """
 
 from __future__ import annotations
@@ -29,6 +34,8 @@ from dataclasses import asdict, dataclass
 
 import numpy as np
 from scipy import stats
+
+from tsfm_rc.eval.fixedb import kv_long_run_variance, kv_pvalue
 
 
 def autocov(d: np.ndarray, k: int) -> float:
@@ -65,9 +72,15 @@ class DMResult:
     lag: int
     h_eff: int
     flag: str = ""
+    method: str = "hln"
 
     def as_dict(self) -> dict:
         return asdict(self)
+
+
+def h_eff_for(h: int, stride: int) -> int:
+    """Horizon in sampling units: number of consecutive origins whose targets overlap, + 1."""
+    return overlap_order(h, stride) + 1
 
 
 def default_kernel_and_lag(T: int, h_eff: int) -> tuple[str, int]:
@@ -85,17 +98,29 @@ def dm_test(
     lag: int | None = None,
     kernel: str | None = None,
     hln: bool = True,
+    method: str = "hln",
 ) -> DMResult:
     """Two-sided DM test of E[d] = 0. Negative mean = first model has lower loss.
 
-    ``kernel``/``lag`` default to the amended pre-registered rule; pass them explicitly only
-    to reproduce other conventions (e.g. R's ``dm.test``: rectangular, lag h-1).
+    ``method="hln"`` (default): DM-HLN with the A2 kernel/lag rule; ``kernel``/``lag`` may be
+    passed explicitly only to reproduce other conventions (e.g. R's ``dm.test``: rectangular,
+    lag h-1). ``method="kv_b1"``: Kiefer-Vogelsang fixed-b test, bandwidth T (amendment A4).
     """
+    if method not in ("hln", "kv_b1"):
+        raise ValueError(f"unknown DM method {method!r}")
     d = np.asarray(d, float)
     d = d[np.isfinite(d)]
     T = len(d)
     if T < 3:
-        return DMResult(np.nan, np.nan, float(np.mean(d)) if T else np.nan, np.nan, T, 0, h_eff, "too_few_obs")
+        return DMResult(np.nan, np.nan, float(np.mean(d)) if T else np.nan, np.nan, T, 0, h_eff, "too_few_obs", method)
+    if method == "kv_b1":
+        dbar = float(d.mean())
+        omega = kv_long_run_variance(d)
+        if omega <= 0:
+            return DMResult(np.nan, np.nan, dbar, 0.0, T, T - 1, h_eff, "zero_variance", method)
+        se = math.sqrt(omega / T)
+        stat = dbar / se
+        return DMResult(float(stat), kv_pvalue(stat), dbar, se, T, T - 1, h_eff, "", method)
     k_def, l_def = default_kernel_and_lag(T, h_eff)
     kernel = kernel or k_def
     L = l_def if lag is None else int(lag)

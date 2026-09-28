@@ -21,6 +21,7 @@ each term properly is in brackets.
 | **Garman–Klass (GK)** | Range-based daily variance estimator from open, high, low, close. [L02] |
 | **GARCH(1,1)** | Model where today's variance depends on yesterday's squared return and yesterday's variance. [L04] |
 | **GJR-GARCH** | GARCH with an extra term for negative returns (leverage effect). [L04] |
+| **Fixed-b (Kiefer–Vogelsang) test** | A DM-type t-test whose long-run variance uses a bandwidth that is a fixed fraction b of the sample (here b = 1, i.e. all lags, Bartlett weights) and whose critical values come from its own non-normal limit (5% two-sided: 4.771). Better size than HAC + normal/t critical values when data overlap heavily; used for the primary family (amendment A4). [L07] |
 | **HAC** | Heteroskedasticity- and autocorrelation-consistent variance estimator (Newey–West). [L07] |
 | **HAR** | Heterogeneous autoregression (Corsi 2009): regress future variance on daily, weekly and monthly averages. [L04] |
 | **HLN correction** | Harvey–Leybourne–Newbold small-sample adjustment to the DM statistic, compared with a t distribution. [L07] |
@@ -42,7 +43,8 @@ each term properly is in brackets.
 | **Quantile forecast** | A forecast of the value below which the outcome falls with probability τ. [L05] |
 | **Realised volatility (RV)** | A measured (not modelled) estimate of past variance; here GK variance averaged over h days. [L02] |
 | **Rolling window** | Training data of fixed length (1000 days) that slides forward. [L03] |
-| **Stride** | Trading days between consecutive forecast origins (5). [L03] |
+| **Primary pass** | The second forecasting pass added by amendment A4: origins every trading day (stride 1) inside the TSFMs' clean windows, only for the primary family and the clean side of the contamination test. [L07] |
+| **Stride** | Trading days between consecutive forecast origins: 5 in the main pass, 1 in the primary pass (A4). [L03] |
 | **Survivorship bias** | Studying only assets that survived to today. [L09] |
 | **Synthetic control** | Simulated series with known dynamics that no TSFM can have seen. [L08] |
 | **TSFM** | Time-series foundation model: a large neural network pretrained on many series, used zero-shot. [L05] |
