@@ -9,6 +9,11 @@
      "git_commit": "1433711a1891af7eab597f42f56422ea922198dc",
      "published_utc": "2026-09-28T12:55:25+00:00",
      "version": "6683bb40c71c"
+    },
+    {
+     "git_commit": "89b23060ee6661f82996b254b306feb489211e73",
+     "published_utc": "2026-09-28T22:50:17+00:00",
+     "version": "ee685506f0c0"
     }
    ],
    "label": "SYNTHETIC — not research results",
@@ -32,34 +37,34 @@
      "status": "UNAVAILABLE"
     }
    },
-   "payload": "default_fixtures/6683bb40c71c/payload.json",
+   "payload": "default_fixtures/ee685506f0c0/payload.json",
    "provenance": {
     "config_hash": "99230c2713955c11f130fe8b515e43b932e41fdae88c8ec5d3cf10ff2a74c916",
-    "created_utc": "2026-09-28T12:32:08+00:00",
+    "created_utc": "2026-09-28T22:49:09+00:00",
     "data_hash": "65b80dd3451afb08a8c3ed1263a74ba4652ec339686d908f37f04bbd0534d7a2",
-    "git_commit": "1433711a1891af7eab597f42f56422ea922198dc",
-    "git_dirty": true,
+    "git_commit": "89b23060ee6661f82996b254b306feb489211e73",
+    "git_dirty": false,
     "raw_hash": "4cfd9de8f6a3100258f7c109b11803cf8f3788eed31de891020016748f0fbb6b"
    },
-   "published_utc": "2026-09-28T12:55:25+00:00",
-   "report": "default_fixtures/6683bb40c71c/RESULTS.md",
+   "published_utc": "2026-09-28T22:50:17+00:00",
+   "report": "default_fixtures/ee685506f0c0/RESULTS.md",
    "run": "default_fixtures",
    "synthetic": true,
    "tables": {
-    "contamination": "default_fixtures/6683bb40c71c/tables/contamination.json",
-    "data_quality": "default_fixtures/6683bb40c71c/tables/data_quality.json",
-    "dm_all": "default_fixtures/6683bb40c71c/tables/dm_all.json",
-    "dm_per_asset": "default_fixtures/6683bb40c71c/tables/dm_per_asset.json",
-    "dm_primary": "default_fixtures/6683bb40c71c/tables/dm_primary.json",
-    "economic": "default_fixtures/6683bb40c71c/tables/economic.json",
-    "mcs": "default_fixtures/6683bb40c71c/tables/mcs.json",
-    "metrics": "default_fixtures/6683bb40c71c/tables/metrics.json",
-    "probabilistic": "default_fixtures/6683bb40c71c/tables/probabilistic.json",
-    "scales": "default_fixtures/6683bb40c71c/tables/scales.json",
-    "synthetic": "default_fixtures/6683bb40c71c/tables/synthetic.json",
-    "windows": "default_fixtures/6683bb40c71c/tables/windows.json"
+    "contamination": "default_fixtures/ee685506f0c0/tables/contamination.json",
+    "data_quality": "default_fixtures/ee685506f0c0/tables/data_quality.json",
+    "dm_all": "default_fixtures/ee685506f0c0/tables/dm_all.json",
+    "dm_per_asset": "default_fixtures/ee685506f0c0/tables/dm_per_asset.json",
+    "dm_primary": "default_fixtures/ee685506f0c0/tables/dm_primary.json",
+    "economic": "default_fixtures/ee685506f0c0/tables/economic.json",
+    "mcs": "default_fixtures/ee685506f0c0/tables/mcs.json",
+    "metrics": "default_fixtures/ee685506f0c0/tables/metrics.json",
+    "probabilistic": "default_fixtures/ee685506f0c0/tables/probabilistic.json",
+    "scales": "default_fixtures/ee685506f0c0/tables/scales.json",
+    "synthetic": "default_fixtures/ee685506f0c0/tables/synthetic.json",
+    "windows": "default_fixtures/ee685506f0c0/tables/windows.json"
    },
-   "version": "6683bb40c71c"
+   "version": "ee685506f0c0"
   },
   {
    "data_source": "fixture",
@@ -68,6 +73,11 @@
      "git_commit": "1433711a1891af7eab597f42f56422ea922198dc",
      "published_utc": "2026-09-28T12:55:25+00:00",
      "version": "0c72ea9fdbf1"
+    },
+    {
+     "git_commit": "89b23060ee6661f82996b254b306feb489211e73",
+     "published_utc": "2026-09-28T22:50:17+00:00",
+     "version": "ba09b3b967ba"
     }
    ],
    "label": "SYNTHETIC — not research results",
@@ -91,34 +101,34 @@
      "status": "UNAVAILABLE"
     }
    },
-   "payload": "smoke/0c72ea9fdbf1/payload.json",
+   "payload": "smoke/ba09b3b967ba/payload.json",
    "provenance": {
     "config_hash": "e23137a183d0cb666ade1df06d92a155a239a2c27ed652c22168671cfb328236",
-    "created_utc": "2026-09-28T12:27:55+00:00",
+    "created_utc": "2026-09-28T22:50:08+00:00",
     "data_hash": "7605425c082360805dc4ed160892ba080f93c94fe2d4fbe416d08f55d1892d4d",
-    "git_commit": "1433711a1891af7eab597f42f56422ea922198dc",
-    "git_dirty": true,
+    "git_commit": "89b23060ee6661f82996b254b306feb489211e73",
+    "git_dirty": false,
     "raw_hash": "ae3cb5657856436d59b0750ea21242e4a296a312e88fb5486ee2697628adb3fb"
    },
-   "published_utc": "2026-09-28T12:55:25+00:00",
-   "report": "smoke/0c72ea9fdbf1/RESULTS.md",
+   "published_utc": "2026-09-28T22:50:17+00:00",
+   "report": "smoke/ba09b3b967ba/RESULTS.md",
    "run": "smoke",
    "synthetic": true,
    "tables": {
-    "contamination": "smoke/0c72ea9fdbf1/tables/contamination.json",
-    "data_quality": "smoke/0c72ea9fdbf1/tables/data_quality.json",
-    "dm_all": "smoke/0c72ea9fdbf1/tables/dm_all.json",
-    "dm_per_asset": "smoke/0c72ea9fdbf1/tables/dm_per_asset.json",
-    "dm_primary": "smoke/0c72ea9fdbf1/tables/dm_primary.json",
-    "economic": "smoke/0c72ea9fdbf1/tables/economic.json",
-    "mcs": "smoke/0c72ea9fdbf1/tables/mcs.json",
-    "metrics": "smoke/0c72ea9fdbf1/tables/metrics.json",
-    "probabilistic": "smoke/0c72ea9fdbf1/tables/probabilistic.json",
-    "scales": "smoke/0c72ea9fdbf1/tables/scales.json",
-    "synthetic": "smoke/0c72ea9fdbf1/tables/synthetic.json",
-    "windows": "smoke/0c72ea9fdbf1/tables/windows.json"
+    "contamination": "smoke/ba09b3b967ba/tables/contamination.json",
+    "data_quality": "smoke/ba09b3b967ba/tables/data_quality.json",
+    "dm_all": "smoke/ba09b3b967ba/tables/dm_all.json",
+    "dm_per_asset": "smoke/ba09b3b967ba/tables/dm_per_asset.json",
+    "dm_primary": "smoke/ba09b3b967ba/tables/dm_primary.json",
+    "economic": "smoke/ba09b3b967ba/tables/economic.json",
+    "mcs": "smoke/ba09b3b967ba/tables/mcs.json",
+    "metrics": "smoke/ba09b3b967ba/tables/metrics.json",
+    "probabilistic": "smoke/ba09b3b967ba/tables/probabilistic.json",
+    "scales": "smoke/ba09b3b967ba/tables/scales.json",
+    "synthetic": "smoke/ba09b3b967ba/tables/synthetic.json",
+    "windows": "smoke/ba09b3b967ba/tables/windows.json"
    },
-   "version": "0c72ea9fdbf1"
+   "version": "ba09b3b967ba"
   }
  ],
  "schema": 1
