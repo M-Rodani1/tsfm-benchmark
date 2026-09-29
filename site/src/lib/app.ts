@@ -1,12 +1,17 @@
 // Singletons shared by the whole app: the local store, the session log and the sync manager.
 import { useSyncExternalStore } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { IdbBackend, LocalStore, TABLES, type Table } from "./db";
+import { bootMessage } from "./bootMessage";
+import { DB_NAME, IdbBackend, LocalStore, TABLES, type Table } from "./db";
 import { SessionTracker } from "./session";
 import { currentSession, onAuthChange, supabase, supabaseConfigured, SupabaseRemote } from "./supabase";
 import { syncOnce, type CursorStore } from "./sync";
 
-export const store = new LocalStore(new IdbBackend());
+export const store: LocalStore = new LocalStore(new IdbBackend(DB_NAME, {
+  onBlocked: () => bootMessage("Close the other tabs of this site, then reload this one.",
+    "The site updated how it stores your progress in this browser, and another open tab still uses the old version."),
+  onVersionChange: () => store.setError("This site was updated in another tab. Reload this page to keep saving your progress."),
+}));
 export const session = new SessionTracker(store);
 
 export type SyncMode = "local-only" | "signed-out" | "signed-in";

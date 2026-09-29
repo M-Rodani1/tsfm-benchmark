@@ -147,3 +147,54 @@ test("the site works offline after a first visit", async ({ page, context }) => 
   await expect(page.getByTestId("primary-card")).toBeVisible();
   await context.setOffline(false);
 });
+
+test("a browser that used the site before an update (older local database) still starts and keeps its progress", async ({ page }) => {
+  // Before the guided journey the site created IndexedDB "tsfm-rc" at version 1 with seven
+  // tables. Recreate exactly that, with some progress in it, before the app first loads.
+  await page.goto("/favicon.svg"); // same origin, no app code
+  await page.evaluate(async () => {
+    const OLD = ["lesson_progress", "exercise_attempts", "exercise_drafts", "notes", "flashcard_state", "review_log", "session_log"];
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open("tsfm-rc", 1);
+      req.onupgradeneeded = () => {
+        for (const t of OLD) req.result.createObjectStore(t, { keyPath: "id" });
+        req.result.createObjectStore("meta");
+      };
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction("notes", "readwrite");
+        tx.objectStore("notes").put({ id: "00", data: { lesson_id: "00", body: "written before the update" }, updated_at: new Date().toISOString(),
+          deleted: false, dirty: true });
+        tx.oncomplete = () => { db.close(); resolve(); };
+      };
+    });
+  });
+  await page.goto("/"); // was a blank page: NotFoundError "object store was not found"
+  await expect(page.getByTestId("welcome")).toBeVisible();
+  await page.goto("/notes?lesson=00");
+  await expect(page.getByTestId("notes")).toHaveValue("written before the update");
+});
+
+test("while an old tab still holds the old database open, a new tab says so, then starts once it is closed", async ({ context }) => {
+  const oldTab = await context.newPage();
+  await oldTab.goto("/favicon.svg");
+  await oldTab.evaluate(async () => {
+    const OLD = ["lesson_progress", "exercise_attempts", "exercise_drafts", "notes", "flashcard_state", "review_log", "session_log"];
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open("tsfm-rc", 1);
+      req.onupgradeneeded = () => {
+        for (const t of OLD) req.result.createObjectStore(t, { keyPath: "id" });
+        req.result.createObjectStore("meta");
+      };
+      req.onerror = () => reject(req.error);
+      // keep the connection open, like a tab running the old site (it never closes it)
+      req.onsuccess = () => { (window as unknown as { oldDb: IDBDatabase }).oldDb = req.result; resolve(); };
+    });
+  });
+  const page = await context.newPage();
+  await page.goto("/");
+  await expect(page.getByTestId("boot-message")).toContainText("Close the other tabs of this site");
+  await oldTab.close();
+  await expect(page.getByTestId("welcome")).toBeVisible();
+});

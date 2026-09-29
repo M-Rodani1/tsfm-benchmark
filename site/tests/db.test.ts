@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
-import { IdbBackend, LocalStore, MemoryBackend, nextTimestamp } from "../src/lib/db";
+import { openDB } from "idb";
+import { IdbBackend, LocalStore, MemoryBackend, nextTimestamp, openStore, TABLES } from "../src/lib/db";
 
 describe("local store (IndexedDB)", () => {
   it("writes survive a reload (a new store on the same database)", async () => {
@@ -31,6 +32,42 @@ describe("local store (IndexedDB)", () => {
     await s2.init();
     expect(s2.all("flashcard_state")).toHaveLength(5);
     expect(s2.all("review_log")).toHaveLength(5);
+  });
+
+  it("a browser that ran an older version of the site (before journey_state) upgrades on open and keeps its data", async () => {
+    // exactly what the site created before the guided journey: version 1, seven tables + meta
+    const OLD = ["lesson_progress", "exercise_attempts", "exercise_drafts", "notes", "flashcard_state", "review_log", "session_log"];
+    const old = await openDB("t-old-site", 1, {
+      upgrade(db) {
+        for (const t of OLD) db.createObjectStore(t, { keyPath: "id" });
+        db.createObjectStore("meta");
+      },
+    });
+    await old.put("notes", { id: "01", data: { lesson_id: "01", body: "written before the update" }, updated_at: "2026-09-01T00:00:00.000Z", deleted: false, dirty: true });
+    await old.put("meta", "user-1", "user_id");
+    old.close();
+
+    const s = new LocalStore(new IdbBackend("t-old-site"));
+    await s.init(); // failed with NotFoundError ("object store was not found") before the fix
+    expect(s.get<{ body: string }>("notes", "01")?.data.body).toBe("written before the update");
+    expect(await s.backend.getMeta("user_id")).toBe("user-1");
+    s.put("journey_state", "site:welcome", { step_key: "site:welcome", status: "done" });
+    await s.flush();
+    const db = await openStore("t-old-site");
+    expect(db.version).toBe(2);
+    expect([...TABLES, "meta"].every((t) => db.objectStoreNames.contains(t))).toBe(true);
+    expect(((await db.get("journey_state", "site:welcome")) as { data: { status: string } }).data.status).toBe("done");
+    db.close();
+  });
+
+  it("a new database gets every store, and an up-to-date one is opened without an upgrade", async () => {
+    const fresh = await openStore("t-fresh");
+    expect([...TABLES, "meta"].every((t) => fresh.objectStoreNames.contains(t))).toBe(true);
+    const v = fresh.version;
+    fresh.close();
+    const again = await openStore("t-fresh");
+    expect(again.version).toBe(v);
+    again.close();
   });
 
   it("timestamps strictly increase per record even within one millisecond", () => {

@@ -37,17 +37,48 @@ export interface StorageBackend {
 }
 
 export const DB_NAME = "tsfm-rc";
+const STORES = [...TABLES, "meta"] as const;
+
+export interface OpenHooks {
+  /** Another tab still holds the old version open, so the upgrade has to wait for it. */
+  onBlocked?: () => void;
+  /** A newer version of the site (another tab) wants to upgrade: this connection was closed. */
+  onVersionChange?: () => void;
+}
+
+/** Open the database and make sure every table has its object store.
+ *
+ * The version is never hard-coded. When a store is missing (a browser that last ran an older
+ * version of the site, from before a table was added, or a brand-new database), the database
+ * is reopened one version higher, which runs the upgrade and creates the missing stores. Data
+ * in existing stores is kept. (Version 1 was hard-coded until the guided journey added
+ * journey_state: every returning browser then failed to start with "object store not found".) */
+export async function openStore(name: string, hooks: OpenHooks = {}): Promise<IDBPDatabase> {
+  const onVersionChange = (db: IDBPDatabase) => () => {
+    db.close();
+    hooks.onVersionChange?.();
+  };
+  let db = await openDB(name);
+  db.addEventListener("versionchange", onVersionChange(db));
+  if (STORES.every((t) => db.objectStoreNames.contains(t))) return db;
+  const version = db.version + 1;
+  db.close();
+  db = await openDB(name, version, {
+    upgrade(up) {
+      for (const t of TABLES) if (!up.objectStoreNames.contains(t)) up.createObjectStore(t, { keyPath: "id" });
+      if (!up.objectStoreNames.contains("meta")) up.createObjectStore("meta");
+    },
+    blocked: () => hooks.onBlocked?.(),
+  });
+  db.addEventListener("versionchange", onVersionChange(db));
+  return db;
+}
 
 export class IdbBackend implements StorageBackend {
   private db: Promise<IDBPDatabase>;
   private handle: IDBPDatabase | null = null;
-  constructor(name = DB_NAME) {
-    this.db = openDB(name, 1, {
-      upgrade(db) {
-        for (const t of TABLES) if (!db.objectStoreNames.contains(t)) db.createObjectStore(t, { keyPath: "id" });
-        if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta");
-      },
-    });
+  constructor(name = DB_NAME, hooks: OpenHooks = {}) {
+    this.db = openStore(name, hooks);
     void this.db.then((db) => (this.handle = db)).catch(() => {});
   }
   async loadAll() {
@@ -163,6 +194,12 @@ export class LocalStore {
   /** Resolves when every write so far has reached IndexedDB. */
   async flush() {
     while (this.pending.size) await Promise.all([...this.pending]);
+  }
+
+  /** Show a storage problem to the learner (the layout displays lastError). */
+  setError(message: string) {
+    this.lastError = message;
+    this.bump();
   }
 
   get<T>(table: Table, id: string): Rec<T> | undefined {

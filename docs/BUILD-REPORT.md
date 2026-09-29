@@ -537,10 +537,28 @@ run synthetic unless its data came from Yahoo Finance or CSV (D-055).
 - **Conflict handling.** Journey state has the same last-write-wins limitations as the rest
   of the progress (D-047).
 
-### 11.6 What you need to do
+### 11.6 A defect found after release, and its fix
+
+The owner reported a blank page after the journey went live. Every browser that had used the
+site before could not start: its local database was opened with a hard-coded version 1, so
+the new `journey_state` store was never created. Fresh browsers were fine, which is why every
+test passed: they all start from an empty browser.
+
+**The fix** (D-057):
+- the database now upgrades itself whenever a store is missing, keeping all data;
+- a tab still running the old site produces a "close the other tabs" message instead of
+  hanging;
+- any failure while starting shows a message instead of a blank page.
+
+**The lesson for the tests.** Tests now include a browser that already has the old
+database, and they must keep doing so for every future schema change. The new tests fail
+on the released code and pass with the fix.
+
+### 11.7 What you need to do
 
 - **If Supabase is already set up**, run
   `site/supabase/migrations/20260928120000_progress_schema.sql` again in the SQL Editor. It
   adds `journey_state` with the same protection and keeps your data (tested).
-- Otherwise nothing: Netlify rebuilds from `main` on the next push.
+- Otherwise nothing: Netlify rebuilds from `main` on the next push. A browser that showed
+  the blank page recovers by itself on the next load, with its progress intact.
 

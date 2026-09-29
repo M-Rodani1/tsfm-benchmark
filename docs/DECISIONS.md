@@ -753,6 +753,22 @@ things:
 
 Export and import include the table. Older export files without it still import.
 
+**Browser database versions (added after a defect).** The first release of the journey broke
+the site for every browser that had visited it before: a blank page, with "NotFoundError:
+One of the specified object stores was not found".
+- *Cause.* The browser database `tsfm-rc` was opened with a hard-coded version 1. An existing
+  database therefore never ran its upgrade, and the new `journey_state` store did not exist.
+- *Fix.* `openStore()` (`site/src/lib/db.ts`) opens the database and, if any store is
+  missing, reopens it one version higher so the upgrade creates it. Existing data is kept.
+  Nothing hard-codes a version any more, so a later table cannot repeat the mistake.
+- *Other tabs.* A tab still running the old site can block the upgrade. The new tab then says
+  "Close the other tabs of this site" and starts as soon as they are closed. A tab told that
+  a newer version is upgrading closes its connection and asks to be reloaded.
+- *Never blank.* A failure while starting now shows a message instead of an empty page.
+- *Tests.* Both a unit test and a browser test recreate the old database, with data, before
+  the site loads. Both fail on the released code and pass now. A second browser test covers
+  the blocking tab.
+
 ### D-058 — Journey UI choices (guided-journey fix)
 - **The tour** opens automatically only on Home, and only until it is finished or skipped.
   Deep links into a lesson are never redirected. It can be re-opened from *Tour* in the menu.
