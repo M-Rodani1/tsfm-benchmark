@@ -3,6 +3,15 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { session, store, sync } from "./lib/app";
 import { bootMessage } from "./lib/bootMessage";
+// Self-hosted fonts (font-src 'self'; latin subsets only): see site/DESIGN.md
+import "@fontsource/ibm-plex-sans/latin-400.css";
+import "@fontsource/ibm-plex-sans/latin-500.css";
+import "@fontsource/ibm-plex-sans/latin-600.css";
+import "@fontsource/ibm-plex-sans/latin-700.css";
+import "@fontsource/source-serif-4/latin-400.css";
+import "@fontsource/source-serif-4/latin-400-italic.css";
+import "@fontsource/source-serif-4/latin-600.css";
+import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./styles.css";
 
 async function boot() {

@@ -7,8 +7,9 @@ export function bootMessage(title: string, detail = "") {
   const box = document.createElement("div");
   box.setAttribute("role", "alert");
   box.setAttribute("data-testid", "boot-message");
-  box.style.cssText = "max-width:640px;margin:48px auto;padding:16px 20px;border-radius:10px;font:16px/1.5 system-ui,sans-serif;" +
-    "background:#fff4dc;color:#5c4300";
+  // the error state of the design (site/DESIGN.md), inline because the stylesheet may not have loaded
+  box.style.cssText = "max-width:640px;margin:48px auto;padding:14px 18px;border-radius:6px;font:15px/1.5 system-ui,sans-serif;" +
+    "background:#ffffff;color:#1c2330;border:1px solid #dde1e7;border-left:3px solid #b42318";
   const h = document.createElement("strong");
   h.textContent = title;
   box.append(h);
