@@ -185,3 +185,55 @@ textarea.notes { width: 100%; min-height: 220px; line-height: 1.5; }
   .lesson-item { grid-template-columns: 2.4em 1fr; }
   .lesson-item > :last-child { grid-column: 2; }
 }
+
+/* ---- guided journey ---------------------------------------------------------------- */
+.status-tag.next { background: var(--accent); color: var(--accent-ink); }
+.status-tag.in_progress { background: var(--accent-soft); color: var(--ink); }
+.status-tag.optional, .status-tag.upcoming { background: var(--mid); color: var(--ink-2); }
+.status-tag.terminal { background: var(--code-bg); color: var(--code-ink); }
+.next-action .why { color: var(--ink-2); margin: 6px 0 10px; }
+.next-action .note, .card .note { background: var(--accent-soft); border-radius: 6px; padding: 6px 10px; margin: 8px 0; }
+.study-running { border-left: 4px solid var(--accent); }
+.breadcrumb { font-size: 0.85rem; margin-bottom: 4px; }
+.breadcrumb a { color: var(--ink-2); text-decoration: none; }
+.breadcrumb a:hover { color: var(--accent); text-decoration: underline; }
+.journey-next { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 18px;
+  padding-top: 14px; border-top: 1px solid var(--grid); }
+.journey-next .btn { max-width: 100%; white-space: normal; text-align: left; }
+.banner.ok-banner { background: var(--ok-soft); color: var(--ok); }
+
+.roadmap { list-style: none; margin: 16px 0; padding: 0; position: relative; }
+.roadmap::before { content: ""; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 2px; background: var(--grid); }
+.road-phase { display: grid; grid-template-columns: 32px 1fr; gap: 12px; margin-bottom: 14px; position: relative; }
+.road-dot { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 0.85rem;
+  background: var(--surface); border: 2px solid var(--axis); color: var(--ink-2); z-index: 1; }
+.road-phase.done .road-dot { background: var(--ok); border-color: var(--ok); color: var(--accent-ink); }
+.road-phase.next .road-dot, .road-phase.in_progress .road-dot { border-color: var(--accent); color: var(--accent); }
+.road-phase.locked .card { opacity: 0.8; }
+.road-phase .card { margin: 0; }
+.road-steps { list-style: none; padding: 0; margin: 10px 0; }
+.road-steps li, .path-mini li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0; border-top: 1px solid var(--grid); }
+.path-mini { list-style: none; padding: 0; margin: 10px 0; }
+
+.welcome { max-width: 720px; margin: 24px auto; }
+.welcome .route { list-style: none; padding-left: 0; }
+.welcome .route li { margin: 6px 0; }
+.welcome .where { color: var(--accent); font-size: 0.85rem; }
+
+.os-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 6px; }
+.os-tabs button { border-radius: 999px; }
+.os-tabs button.current { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.commands { list-style: none; padding: 0; margin: 0; }
+.command { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin: 10px 0; }
+.command h3 { margin: 0 0 8px; font-size: 1rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cmd-num { display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 50%; background: var(--accent-soft);
+  color: var(--ink); font-size: 0.85rem; }
+.cmd-row { display: flex; gap: 8px; align-items: flex-start; }
+.cmd-row pre.cmd { flex: 1; margin: 0; overflow-x: auto; }
+.command details.errors summary { cursor: pointer; color: var(--ink-2); font-size: 0.9rem; }
+.command details.errors li { margin: 6px 0; }
+.check-result { border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+.check-result.success { background: var(--ok-soft); color: var(--ok); }
+.check-result.failure { background: var(--bad-soft); color: var(--bad); }
+.check-result.partial, .check-result.unrecognised { background: var(--warn-bg); color: var(--warn-ink); }
+.check-result li { margin: 6px 0; color: var(--ink); }

@@ -1,29 +1,17 @@
-import { Link } from "react-router-dom";
-import { CopyButton } from "../components/CopyButton";
+import { Link, Navigate } from "react-router-dom";
+import { NextStepCard, StatusPill, StudyRunningCard } from "../components/Journey";
 import { store, useStore } from "../lib/app";
-import { lessons, researchStatus } from "../lib/content";
-import { dueCards, getProgress, nextLessonStep } from "../lib/progress";
+import { lessons } from "../lib/content";
+import { useJourney } from "../lib/journeyState";
+import { dueCards, getProgress } from "../lib/progress";
 import type { SessionRec } from "../lib/session";
-import type { TerminalTask } from "../lib/types";
-
-export function TerminalTaskCard({ task }: { task: TerminalTask }) {
-  return (
-    <section className="card" data-testid="terminal-task">
-      <h2>⌨️ Waiting for you in a terminal: {task.title}</h2>
-      <p className="sub">{task.why} Time: {task.minutes}.</p>
-      <pre className="cmd">{task.commands.join("\n")}</pre>
-      <div className="row">
-        <CopyButton text={task.commands.join("\n")} label="Copy commands" />
-        <span className="muted">Full instructions: README “Running the real study” and <Link to="/status">Research status</Link>.</span>
-      </div>
-    </section>
-  );
-}
 
 export function Home() {
   useStore();
+  const v = useJourney();
   const now = new Date();
-  const plan = nextLessonStep(store);
+  // first visit: the three-screen tour (re-openable from the menu)
+  if (store.ready && v.next.stepKey === "site:welcome" && !store.get("journey_state", "site:welcome")) return <Navigate to="/welcome" replace />;
   const due = dueCards(store, now);
   const done = lessons.filter((l) => getProgress(store, l).status === "completed").length;
   const sessions = store.all<SessionRec>("session_log").sort((a, b) => (a.data.started_at < b.data.started_at ? 1 : -1));
@@ -33,30 +21,9 @@ export function Home() {
 
   return (
     <>
-      <h1>Continue</h1>
-      <section className="card hero" data-testid="continue">
-        {plan ? (
-          <>
-            <div className="sub">
-              {plan.mode === "continue" ? "You stopped in" : "Next up"}: Lesson {plan.lesson.id} · {plan.lesson.title}
-            </div>
-            <h2 style={{ marginTop: 6 }}>
-              Step {plan.stepIndex + 1} of {plan.lesson.steps.length}: {plan.step.title}
-            </h2>
-            <div className="row">
-              <Link className="btn primary" to={`/lessons/${plan.lesson.id}?step=${plan.step.id}`} data-testid="continue-button">
-                {plan.mode === "continue" ? "Continue where you stopped" : `Start lesson ${plan.lesson.id}`} →
-              </Link>
-              <span className="muted">about {plan.minutesLeft} min left in this lesson</span>
-            </div>
-          </>
-        ) : (
-          <>
-            <h2>All {lessons.length} lessons done 🎉</h2>
-            <p>Keep your cards fresh in Review, and follow the research on the Results and Research status pages.</p>
-          </>
-        )}
-      </section>
+      <h1>Home</h1>
+      <NextStepCard next={v.next} />
+      {v.studyRunning && <StudyRunningCard />}
       <div className="grid2">
         <section className="card" data-testid="due-card">
           <div className="kpi">{due.length}</div>
@@ -73,10 +40,24 @@ export function Home() {
           <p><Link to="/lessons">All lessons</Link> · <Link to="/notes">Notes &amp; session log</Link></p>
         </section>
       </div>
-      {researchStatus.terminal_tasks.map((t) => <TerminalTaskCard key={t.id} task={t} />)}
-      {researchStatus.terminal_tasks.length === 0 && (
-        <section className="card"><h2>Research</h2><p>No terminal task is waiting. See <Link to="/results">Results</Link>.</p></section>
-      )}
+      <section className="card" data-testid="path-summary">
+        <div className="row">
+          <h2 style={{ margin: 0 }}>Your path</h2>
+          <span className="spacer" />
+          <span className="muted">{v.progress.done} of {v.progress.total} steps · {v.progress.percent}%</span>
+        </div>
+        <ol className="path-mini">
+          {v.phases.map((p) => (
+            <li key={p.id} data-status={p.status}>
+              <Link to={`/path#${p.id}`}>{p.index}. {p.title}</Link>
+              {p.kind === "terminal" && <span className="sub"> · ⌨️ on your laptop</span>}
+              <span className="spacer" />
+              <StatusPill status={p.status} />
+            </li>
+          ))}
+        </ol>
+        <p style={{ marginBottom: 0 }}><Link to="/path">See every step →</Link></p>
+      </section>
     </>
   );
 }

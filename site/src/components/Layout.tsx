@@ -20,7 +20,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const sync = useSync();
   const due = dueCards(store, new Date()).length;
   const nav = [
-    ["/", "Home"], ["/lessons", "Lessons"], ["/review", "Review"], ["/results", "Results"], ["/notes", "Notes & log"], ["/status", "Research status"],
+    ["/", "Home"], ["/path", "Your path"], ["/lessons", "Lessons"], ["/review", "Review"], ["/results", "Results"], ["/notes", "Notes & log"],
+    ["/status", "Research status"], ["/welcome", "Tour"],
   ] as const;
   return (
     <>

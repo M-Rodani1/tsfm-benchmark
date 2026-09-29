@@ -1,12 +1,14 @@
 import { useEffect, useMemo } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Checkpoint } from "../components/Checkpoint";
 import { CodeCell } from "../components/CodeCell";
+import { Breadcrumb, NextStepButton, SyntheticBanner } from "../components/Journey";
 import { InlineMd, Markdown } from "../components/Markdown";
 import { Predict } from "../components/Predict";
 import { PyStatus } from "../components/PyStatus";
 import { store, useStore } from "../lib/app";
-import { lessonById } from "../lib/content";
+import { content, lessonById } from "../lib/content";
+import { useJourney } from "../lib/journeyState";
 import { getProgress, missingPrerequisites, overridePrerequisites, percentDone, setCurrentStep, stepDone } from "../lib/progress";
 import { runner } from "../py/runner";
 
@@ -14,8 +16,8 @@ export function LessonPage() {
   useStore();
   const { id = "" } = useParams();
   const [params, setParams] = useSearchParams();
-  const navigate = useNavigate();
   const lesson = lessonById(id);
+  const journey = useJourney();
   const progress = lesson ? getProgress(store, lesson) : null;
   const requested = params.get("step");
   const stepIndex = useMemo(() => {
@@ -44,7 +46,7 @@ export function LessonPage() {
     window.scrollTo({ top: 0 });
   };
   const isLast = stepIndex === lesson.steps.length - 1;
-  const nextLesson = lesson.next ? lessonById(lesson.next) : null;
+  const needsReal = content.journey.phases.some((p) => p.requires_real_results && p.steps.some((x) => x.key === `lesson:${lesson.id}`));
 
   return (
     <div className="lesson-layout">
@@ -63,6 +65,7 @@ export function LessonPage() {
       </aside>
       <div>
         <div className="lesson-head">
+          <Breadcrumb stepKey={`lesson:${lesson.id}`} />
           <div className="meta">Lesson {lesson.id} · ⏱ {lesson.minutes} min{lesson.codeToRead.length ? <> · code you will read: {lesson.codeToRead.map((c) => <code key={c} style={{ marginRight: 4 }}>{c}</code>)}</> : null}</div>
           <h1>{lesson.title}</h1>
           {stepIndex === 0 && (
@@ -73,6 +76,7 @@ export function LessonPage() {
             </div>
           )}
           {lesson.browserNote && stepIndex === 0 && <div className="callout"><strong>In the browser:</strong> <InlineMd text={lesson.browserNote} /></div>}
+          {needsReal && <SyntheticBanner what="this lesson" />}
         </div>
         {locked ? (
           <section className="card" data-testid="prereq-lock">
@@ -103,21 +107,13 @@ export function LessonPage() {
               <span className="spacer" />
               {stepDone(step, progress) ? <span className="verdict-ok">✓ step done</span> : <span className="muted">Do the activity above to complete this step</span>}
               {!isLast && <button type="button" className="primary" onClick={() => goto(stepIndex + 1)} data-testid="next-step">Next →</button>}
-              {isLast && (
-                nextLesson ? (
-                  <button type="button" className="primary" data-testid="next-lesson" onClick={() => navigate(`/lessons/${nextLesson.id}`)}>
-                    Next: lesson {nextLesson.id} →
-                  </button>
-                ) : (
-                  <Link className="btn primary" to="/">Finish: back to Home →</Link>
-                )
-              )}
             </div>
             {isLast && progress.status === "completed" && (
               <p className="verdict-ok" data-testid="lesson-complete">
                 Lesson complete. Its {lesson.flashcards.length} flashcards are in your <Link to="/review">review queue</Link>.
               </p>
             )}
+            {isLast && <NextStepButton next={journey.next} here={`lesson:${lesson.id}`} />}
           </section>
         )}
       </div>

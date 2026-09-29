@@ -1,5 +1,5 @@
 import { researchStatus as S } from "../lib/content";
-import { TerminalTaskCard } from "./Home";
+import { TerminalTaskCard } from "../components/TerminalTaskCard";
 
 export function Status() {
   return (

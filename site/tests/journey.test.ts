@@ -8,7 +8,7 @@ import contentJson from "../src/generated/content.json";
 import { breadcrumb, computeJourney, nextAction, type JourneyRecord, type JourneySnapshot, type LessonSnapshot } from "../src/lib/journey";
 import type { ContentBundle } from "../src/lib/types";
 // @ts-expect-error plain ESM build scripts
-import { buildJourney, validateJourney } from "../scripts/journey.mjs";
+import { buildJourney, validateJourney, validateTask } from "../scripts/journey.mjs";
 
 const content = contentJson as unknown as ContentBundle;
 const J = content.journey;
@@ -210,5 +210,18 @@ describe("journey.yaml validation (build time)", () => {
     const e = clone();
     (e as { welcome: unknown[] }).welcome = [];
     expect(validateJourney(e, ctx)).toContain("journey.yaml: welcome needs exactly 3 screens with title and body");
+    const f = clone();
+    f.phases[2].note = { Start: "this now" }; // what an unquoted "Start: this now" becomes in YAML
+    expect(validateJourney(f, ctx)).toContain("phase P2: note must be a string (quote it)");
+  });
+
+  it("rejects task text that YAML did not read as text, and unknown error references", () => {
+    const task = yamlLoad(readFileSync(join(REPO, "site", "content", "tasks", "setup.yaml"), "utf8")) as Record<string, unknown>;
+    expect(validateTask(task, "setup.yaml", {}, content.errors).problems).toContain(
+      "tasks/setup.yaml command 7: unknown doctor fix 'python'"); // no catalog given
+    const fixes = JSON.parse(readFileSync(join(REPO, "site", "content", "doctor_fixes.json"), "utf8")).fixes;
+    expect(validateTask(task, "setup.yaml", fixes, content.errors).problems).toEqual([]);
+    const bad = { ...task, before: [{ Windows: "everything runs inside WSL" }] }; // an unquoted "Windows: …"
+    expect(validateTask(bad, "setup.yaml", fixes, content.errors).problems[0]).toMatch(/text must be a string/);
   });
 });

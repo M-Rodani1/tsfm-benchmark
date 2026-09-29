@@ -6,7 +6,7 @@ time: 30–60 min, mostly downloads (about 7 GB)
 before:
   - About **10 GB of free disk space** (PyTorch alone is about 6 GB).
   - A laptop you can leave plugged in. Nothing here needs a GPU.
-  - Windows: everything runs inside **WSL** (Ubuntu), a Linux system built into Windows. The first command installs it.
+  - "Windows: everything runs inside **WSL** (Ubuntu), a Linux system built into Windows. The first command installs it."
 commands:
   - title: Install WSL (Windows only)
     os: [windows]

@@ -1,7 +1,7 @@
 // End-to-end flows that need no Python: steps, persistence, export/import, review, results.
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
-import { content, importProgress, localDate, progressFile } from "./helpers";
+import { content, importProgress, localDate, progressFile, skipTour } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   page.on("dialog", (d) => void d.accept());
@@ -9,14 +9,25 @@ test.beforeEach(async ({ page }) => {
 
 test("home shows the next step, due cards and the pending terminal task", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("continue")).toContainText("Lesson 00");
+  await expect(page).toHaveURL(/\/welcome$/); // first visit: the tour (tests/journey.spec.ts goes through it)
+  await page.getByTestId("welcome-skip").click();
+  await expect(page.getByTestId("next-action")).toContainText("Lesson 00");
   await expect(page.getByTestId("due-card")).toContainText("0");
+  // the terminal work is on Home's path summary, the Research status page and its task pages
+  await expect(page.getByTestId("path-summary")).toContainText("Launch the real study");
+  await expect(page.getByTestId("path-summary")).toContainText("Publish the real results");
+  await page.goto("/status");
   await expect(page.getByTestId("terminal-task")).toContainText("make reproduce");
   await expect(page.getByTestId("terminal-task")).toContainText("make publish-results");
+  await page.goto("/tasks/run-study");
+  await expect(page.getByTestId("task-page")).toContainText("make reproduce");
+  await page.goto("/tasks/publish");
+  await expect(page.getByTestId("task-page")).toContainText("make publish-results");
   await expect(page.getByTestId("local-only-banner")).toBeVisible();
 });
 
 test("complete a lesson step, then reload: progress and position persist", async ({ page }) => {
+  await skipTour(page);
   await page.goto("/lessons/00");
   const step = page.getByTestId("step");
   await expect(step).toHaveAttribute("data-step", "what-runs-where");
@@ -31,8 +42,9 @@ test("complete a lesson step, then reload: progress and position persist", async
   await page.getByRole("button", { name: /What runs where/ }).click();
   await expect(page.getByTestId("predict-feedback")).toContainText("Right");
   await page.goto("/");
-  await expect(page.getByTestId("continue")).toContainText("You stopped in");
-  await expect(page.getByTestId("continue")).toContainText("Step 2 of 6");
+  await expect(page.getByTestId("next-action")).toContainText("Continue lesson 00");
+  await expect(page.getByTestId("next-action")).toContainText("step 2 of 6");
+  await expect(page.getByTestId("next-action-button")).toHaveAttribute("href", "/lessons/00?step=is-the-data-what-it-should-be");
 });
 
 test("code is autosaved as you type and survives closing the tab", async ({ page, context }) => {

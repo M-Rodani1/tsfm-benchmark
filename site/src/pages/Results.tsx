@@ -7,6 +7,9 @@ import { fmt, fmtp, type RunPayload } from "../components/charts/common";
 import { DmMatrix } from "../components/charts/DmMatrix";
 import { LossDiffChart } from "../components/charts/LossDiffChart";
 import { Markdown } from "../components/Markdown";
+import { Link } from "react-router-dom";
+import { session, store } from "../lib/app";
+import { markDone, realResultsPublished } from "../lib/journeyState";
 
 interface IndexEntry {
   run: string; version: string; synthetic: boolean; label: string; payload: string; published_utc: string;
@@ -40,6 +43,11 @@ export default function Results() {
       .catch((e) => setError(String(e)));
   }, []);
   const entry = index?.find((e) => e.run === runName);
+  // Phase 6, "Open the Results page of your real run": counts only once a real run is published
+  useEffect(() => {
+    if (realResultsPublished() && !store.get("journey_state", "site:results"))
+      markDone(store, "site:results", "site", "opened the Results page with real results", session.id);
+  }, []);
   useEffect(() => {
     if (!entry) return;
     setPayload(null);
@@ -63,6 +71,10 @@ export default function Results() {
       {entry?.synthetic && (
         <div className="banner synthetic" data-testid="synthetic-banner">
           {entry.label}. These are the committed synthetic fixtures: they show the pipeline works, not how the models do on markets.
+          {!realResultsPublished() && (
+            <> The real version unlocks when you <Link to="/tasks/run-study">run the study on your laptop (Phase 2)</Link> and{" "}
+              <Link to="/tasks/publish">publish its results (Phase 5)</Link>.</>
+          )}
         </div>
       )}
       <div className="filters" role="group" aria-label="Filters">

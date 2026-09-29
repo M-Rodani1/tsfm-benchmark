@@ -25,12 +25,17 @@ function sentences(text) {
   return t.trim() ? t.split(/[.!?](?=\s+[A-Z(])/).length : 0;
 }
 
-function validateTask(task, file, doctorFixes, errors) {
+export function validateTask(task, file, doctorFixes, errors) {
   const p = [];
   const where = `tasks/${file}`;
   if (task?.id !== file.replace(/\.ya?ml$/, "")) p.push(`${where}: id must equal the file name`);
   for (const f of ["title", "why", "time"]) if (!task?.[f]) p.push(`${where}: missing ${f}`);
   if (!Array.isArray(task?.commands) || !task.commands.length) p.push(`${where}: needs commands`);
+  // every text shown on the page must be a string (an unquoted "Windows: …" is a YAML mapping)
+  const texts = [task?.title, task?.why, task?.time, task?.note, ...(task?.before ?? []), task?.check?.prompt, task?.check?.success,
+    ...(task?.commands ?? []).flatMap((c) => [c.title, c.run, c.text, c.expect, c.time, c.where, ...Object.values(c.run_os ?? {}),
+      ...Object.values(c.os_note ?? {}), ...(c.errors ?? []).flatMap((e) => [e.see, e.fix])])];
+  for (const t of texts) if (t !== undefined && t !== null && typeof t !== "string") p.push(`${where}: text must be a string, got ${JSON.stringify(t).slice(0, 80)} (quote it)`);
   const commands = [];
   for (const [i, c] of (task?.commands ?? []).entries()) {
     const at = `${where} command ${i + 1}`;
@@ -82,7 +87,7 @@ export function validateJourney(raw, { lessonIds, taskIds }) {
   const phases = raw?.phases;
   if (!Array.isArray(phases) || !phases.length) return ["journey.yaml: needs a list of phases"];
   const welcome = raw?.welcome;
-  if (!Array.isArray(welcome) || welcome.length !== 3 || welcome.some((w) => !w?.title || !w?.body))
+  if (!Array.isArray(welcome) || welcome.length !== 3 || welcome.some((w) => typeof w?.title !== "string" || typeof w?.body !== "string"))
     p.push("journey.yaml: welcome needs exactly 3 screens with title and body");
   const seen = new Set();
   const lessonUse = new Map();
@@ -92,6 +97,9 @@ export function validateJourney(raw, { lessonIds, taskIds }) {
     if (!/^P\d+$/.test(String(ph?.id))) p.push(`${at}: id must look like P0, P1, …`);
     if (seen.has(ph?.id)) p.push(`${at}: duplicate id`);
     for (const f of ["title", "goal", "why", "time", "done"]) if (!ph?.[f]) p.push(`${at}: missing ${f}`);
+    for (const f of ["title", "goal", "why", "time", "done", "note"])
+      if (ph?.[f] !== undefined && typeof ph[f] !== "string") p.push(`${at}: ${f} must be a string (quote it)`);
+    for (const s of ph?.steps ?? []) if (s?.title !== undefined && typeof s.title !== "string") p.push(`${at}: step title must be a string (quote it)`);
     if (ph?.goal && sentences(ph.goal) !== 1) p.push(`${at}: goal must be one sentence`);
     if (ph?.why && ![1, 2].includes(sentences(ph.why))) p.push(`${at}: why must be 1-2 sentences`);
     for (const r of ph?.requires ?? []) if (!seen.has(r)) p.push(`${at}: requires ${r}, which is not an earlier phase`);
