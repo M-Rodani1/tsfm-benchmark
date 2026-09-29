@@ -1,6 +1,7 @@
 // Research-status data for the site, generated at build time from the repository's own docs:
 // docs/BUILD-REPORT.md (builds, audit corrections), docs/PREREGISTRATION.md (amendments) and
-// the published results index (model status, whether real results exist).
+// the published results index (model status, whether real results exist) and study.json (what the
+// study is and each model's clean test window, from the config; `make publish-results` writes it).
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -94,6 +95,8 @@ export function buildStatus(repo, env = process.env) {
   const prereg = readFileSync(join(repo, "docs", "PREREGISTRATION.md"), "utf8");
   const idxPath = join(repo, "site", "public", "data", "results", "index.json");
   const index = existsSync(idxPath) ? JSON.parse(readFileSync(idxPath, "utf8")) : { runs: [], real_results_available: false };
+  const studyPath = join(repo, "site", "public", "data", "results", "study.json");
+  const study = existsSync(studyPath) ? JSON.parse(readFileSync(studyPath, "utf8")) : null;
   const tasks = [];
   if (!index.real_results_available) tasks.push(TERMINAL_TASK_REAL_RESULTS);
   else {
@@ -109,7 +112,8 @@ export function buildStatus(repo, env = process.env) {
       });
   }
   return {
-    generated_from: { commit: env.COMMIT_REF || null, docs: ["docs/BUILD-REPORT.md", "docs/PREREGISTRATION.md", "site/public/data/results/index.json"] },
+    generated_from: { commit: env.COMMIT_REF || null, docs: ["docs/BUILD-REPORT.md", "docs/PREREGISTRATION.md", "site/public/data/results/index.json",
+      "site/public/data/results/study.json"] },
     builds: parseBuilds(report),
     amendments: parseAmendments(prereg),
     audits: parseAudits(report),
@@ -118,5 +122,6 @@ export function buildStatus(repo, env = process.env) {
       published_utc: r.published_utc, provenance: r.provenance, model_status: r.model_status })),
     real_results_available: !!index.real_results_available,
     terminal_tasks: tasks,
+    study,
   };
 }

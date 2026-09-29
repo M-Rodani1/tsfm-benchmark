@@ -29,6 +29,9 @@ GENERATED = "<!-- GENERATED from site/content/lessons/{slug} by `make lessons`: 
 
 def _predict_md(q: dict) -> str:
     lines = [f"🤔 **Predict before you run:** {q['question']}"]
+    if q.get("figure"):
+        lines += ["", "*(On the website this question comes with a chart of the series; it is drawn from "
+                  f"`figures/{q['figure']}.json` in the lesson folder of `site/content`.)*"]
     if q.get("options"):
         lines += [""] + [f"- {o}" for o in q["options"]]
     if q.get("options") and isinstance(q.get("answer"), int):

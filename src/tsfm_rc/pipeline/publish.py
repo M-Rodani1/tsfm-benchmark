@@ -147,6 +147,41 @@ def _version(files: dict[str, str]) -> str:
     return h.hexdigest()[:12]
 
 
+# Display names for the website only (presentation; the study identifies models by config name).
+MODEL_LABELS = {"chronos_bolt_tiny": "Chronos-Bolt tiny", "timesfm_2p5_200m": "TimesFM 2.5 (200M)", "moirai_1p1_small": "Moirai 1.1 small"}
+
+
+def study_facts(config_path: str = "configs/default.yaml", results_root: Path = RESULTS_DIR) -> dict:
+    """What the pre-registered study is, for the website's Home page (``study.json``).
+
+    Everything comes from the config and the contamination-window rule
+    (``tsfm_rc.contamination.windows``): clean test data start at the effective release plus the
+    buffer. Once a real run exists, the weights' commit dates in its ``model_status.json`` enter
+    exactly as they do in the study (amendment A1). No date is typed by hand.
+    """
+    from tsfm_rc.config import config_hash, load_config
+    from tsfm_rc.contamination.windows import windows_for_models
+
+    cfg = load_config(ROOT / config_path)
+    status_path = results_root / cfg.name / "model_status.json"
+    status = json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists() else {}
+    windows = windows_for_models(cfg, status)
+    return {
+        "generated_by": "tsfm_rc.pipeline.publish.study_facts (make publish-results)",
+        "config": str(config_path), "config_hash": config_hash(cfg)[:16], "run": cfg.name,
+        "data": {"provider": cfg.data.provider, "tickers": len(cfg.data.tickers), "start": str(cfg.data.start),
+                 "end": str(cfg.data.end)},
+        "targets": list(cfg.targets.kinds), "horizons": list(cfg.targets.horizons),
+        "baselines": sorted({b for names in cfg.models.baselines.values() for b in names}),
+        "primary_tests": len(cfg.models.tsfms) * len(cfg.targets.kinds) * len(cfg.targets.horizons),
+        "buffer_days": cfg.contamination.buffer_days,
+        "weights_dates_from": str(status_path.relative_to(results_root.parent)) if status else None,
+        "models": [{"name": m.name, "label": MODEL_LABELS.get(m.name, m.name), "hf_id": m.hf_id, **{
+            k: v for k, v in windows[m.name].as_dict().items() if k in ("release_date", "weights_date", "effective_release", "clean_start")}}
+            for m in cfg.models.tsfms],
+    }
+
+
 def publish(runs: list[str] | None = None, results_root: Path = RESULTS_DIR, out_root: Path = PUBLISH_ROOT,
             now: str | None = None) -> dict:
     out_root.mkdir(parents=True, exist_ok=True)
@@ -193,4 +228,8 @@ def publish(runs: list[str] | None = None, results_root: Path = RESULTS_DIR, out
     text = json.dumps(index, indent=1, sort_keys=True, ensure_ascii=False) + "\n"
     if not index_path.exists() or index_path.read_text(encoding="utf-8") != text:
         index_path.write_text(text, encoding="utf-8")
+    facts = json.dumps(study_facts(results_root=results_root), indent=1, ensure_ascii=False) + "\n"
+    study_path = out_root / "study.json"
+    if not study_path.exists() or study_path.read_text(encoding="utf-8") != facts:
+        study_path.write_text(facts, encoding="utf-8")
     return index

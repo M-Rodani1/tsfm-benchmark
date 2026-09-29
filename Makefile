@@ -71,9 +71,10 @@ doctor:  ## Check environment, data cache and model availability (ONLINE=1 also 
 flashcards:  ## Export all lesson flashcards to an Anki-importable CSV
 	$(RUN) tsfm-rc flashcards
 
-lessons:  ## Regenerate lessons/ (notebooks, checkers, flashcards) and site/content/doctor_fixes.json
+lessons:  ## Regenerate lessons/ (notebooks, checkers, flashcards), site/content/doctor_fixes.json and lesson figures
 	$(RUN) python lessons/_tools/build_notebooks.py
 	$(RUN) python -c "from tsfm_rc.pipeline.doctor import write_fix_catalog; print('wrote', write_fix_catalog())"
+	$(RUN) python -c "from tsfm_rc.learn import write_predict_figures; print('wrote', *write_predict_figures())"
 
 publish-results:  ## Export stored statistics to versioned JSON for the website (then commit + push)
 	$(RUN) tsfm-rc publish-results

@@ -50,6 +50,9 @@ question: "…"
 options: ["…", "…"]           # multiple choice: answer = index; or kind: number with
 answer: 1                     # answer + tolerance (+ unit); explain is shown afterwards
 explain: "…"
+figure: vol-clusters          # optional, a chart question: figures/<name>.json (one path per
+                              # option), written by `make lessons` from tsfm_rc.learn; the build
+                              # fails if `answer` differs from the figure's computed answer
 ```
 
 ```checkpoint                 <- the graded exercise (exactly one, in the last step)

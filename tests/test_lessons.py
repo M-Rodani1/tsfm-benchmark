@@ -60,6 +60,29 @@ def test_global_error_table():
         assert re.search(needle, text), f"no general explanation for {needle}"
 
 
+def test_predict_figures_are_current_and_answer_follows_the_evidence():
+    """The committed chart-question figures equal what ``make lessons`` computes, and the lesson's
+    stated answer is the option that was closest (QLIKE) most often across all similar shocks."""
+    from tsfm_rc.learn import PREDICT_FIGURES
+
+    for (lesson, name), fn in PREDICT_FIGURES.items():
+        p = CONTENT_DIR / "lessons" / lesson / "figures" / f"{name}.json"
+        assert json.loads(p.read_text(encoding="utf-8")) == json.loads(json.dumps(fn())), f"{p} is stale: run `make lessons`"
+    fig = json.loads((CONTENT_DIR / "lessons" / "02-volatility" / "figures" / "vol-clusters.json").read_text(encoding="utf-8"))
+    tally = fig["similar_shocks"]["closest_by_option"]
+    per_series = fig["similar_shocks"]["series"]
+    assert set(per_series) == {"SYN_GARCH_A", "SYN_GARCH_B", "SYN_QUIRKS"}  # every GARCH series, none chosen
+    assert [sum(v["closest_by_option"][i] for v in per_series.values()) for i in range(3)] == tally
+    assert sum(tally) == fig["similar_shocks"]["n"] >= 30
+    assert fig["answer"] == tally.index(max(tally)) == 1  # the slow fade, by a majority of all events
+    assert tally[1] > sum(tally) / 2
+    for v in per_series.values():  # and the most frequent in each series on its own
+        assert v["closest_by_option"].index(max(v["closest_by_option"])) == 1
+    assert len(fig["options"]) == 3 and all(len(o) == len(fig["realised"]) for o in fig["options"])
+    block = next(b for s in BY_ID["02"].steps for b in s.blocks if b.kind == "predict" and b.data.get("figure") == "vol-clusters")
+    assert block.data["answer"] == fig["answer"]
+
+
 @pytest.mark.parametrize("L", ALL, ids=IDS)
 def test_generated_lesson_folder_is_up_to_date(L):
     for name, text in generated_files(L, BY_ID).items():

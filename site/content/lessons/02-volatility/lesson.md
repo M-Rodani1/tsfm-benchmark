@@ -38,6 +38,24 @@ daily = daily_series(raw)
 print(daily[["r", "gk"]].describe().round(3))
 ```
 
+## Volatility comes in clusters
+
+Calm days tend to follow calm days, and turbulent days follow turbulent ones. That is why
+volatility can be forecast while returns cannot. The chart shows sixty days of a simulated
+series from the course fixtures, so its true daily volatility is known. Then a shock hits.
+Before you look at what came next, make your own forecast.
+
+```predict
+question: "Over the next 40 days, volatility will most likely"
+figure: vol-clusters
+options:
+  - "Snap back to normal within a couple of days"
+  - "Stay high, then fade slowly over several weeks"
+  - "Keep climbing"
+answer: 1
+explain: "Each day keeps most of yesterday's variance, so a shock fades over weeks, not days. That persistence is what makes volatility forecastable, and it is what the GARCH and HAR baselines of lesson 04 exploit. One path is a single draw, though: judge a forecast over many shocks, as the study does over many days."
+```
+
 ## Three ways to measure one day's variance
 
 - squared return `r²` (uses only the close);

@@ -25,6 +25,7 @@ Jupyter notebooks in ``lessons/`` are generated from them by ``build_notebooks.p
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -245,6 +246,16 @@ def validate(lesson: Lesson, all_ids: set[str]) -> list[str]:
                     p.append(f"step '{s.title}': predict needs 'question' and 'explain'")
                 if "options" in q and not (isinstance(q.get("answer"), int) and 0 <= q["answer"] < len(q["options"])):
                     p.append(f"step '{s.title}': predict 'answer' must index 'options'")
+                if "figure" in q:  # chart question: data written by `make lessons` (tsfm_rc.learn)
+                    fp = lesson.dir / "figures" / f"{q['figure']}.json"
+                    if not fp.exists():
+                        p.append(f"step '{s.title}': figure {q['figure']} missing (run `make lessons`)")
+                    else:
+                        fig = json.loads(fp.read_text(encoding="utf-8"))
+                        if len(fig.get("options", [])) != len(q.get("options", [])):
+                            p.append(f"step '{s.title}': figure {q['figure']} needs one path per option")
+                        if fig.get("answer") != q.get("answer"):
+                            p.append(f"step '{s.title}': answer {q.get('answer')} differs from the figure's computed answer {fig.get('answer')}")
             if b.kind == "checkpoint":
                 n_checkpoints += 1
     if n_checkpoints != 1 or (lesson.steps and not any(b.kind == "checkpoint" for b in lesson.steps[-1].blocks)):

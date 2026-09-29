@@ -19,6 +19,7 @@ from tsfm_rc.pipeline.publish import (
     SYNTHETIC_LABEL,
     build_run_files,
     publish,
+    study_facts,
 )
 
 RUNS = ["smoke", "default_fixtures"]
@@ -37,6 +38,24 @@ def test_committed_published_data_is_current():
             p = PUBLISH_ROOT / run / by_run[run]["version"] / rel
             assert p.read_text(encoding="utf-8") == text, p
     assert index["real_results_available"] is False  # only synthetic fixtures so far
+
+
+def test_study_facts_are_current_and_derived_from_config():
+    """Home's "Models under test" dates come from the config and the contamination rule, never typed."""
+    from tsfm_rc.config import load_config
+    from tsfm_rc.contamination.windows import windows_for_models
+
+    facts = json.loads((PUBLISH_ROOT / "study.json").read_text(encoding="utf-8"))
+    assert facts == json.loads(json.dumps(study_facts())), "run `make publish-results` and commit"
+    cfg = load_config(ROOT / "configs" / "default.yaml")
+    status_path = RESULTS_DIR / cfg.name / "model_status.json"
+    windows = windows_for_models(cfg, json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists() else {})
+    assert [m["name"] for m in facts["models"]] == [m.name for m in cfg.models.tsfms]
+    for m in facts["models"]:
+        w = windows[m["name"]]
+        assert m["clean_start"] == str(w.clean_start.date()) and m["effective_release"] == str(w.effective_release.date())
+    assert facts["buffer_days"] == cfg.contamination.buffer_days
+    assert facts["primary_tests"] == len(cfg.models.tsfms) * len(cfg.targets.kinds) * len(cfg.targets.horizons)
 
 
 @pytest.mark.parametrize("run", RUNS)

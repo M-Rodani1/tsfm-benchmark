@@ -10,6 +10,18 @@ export interface PredictData {
   tolerance?: number;
   unit?: string;
   explain: string;
+  /** A chart question: figures/<figure>.json of the lesson, loaded at build time. */
+  figure?: string;
+  figureData?: ForecastFigure;
+}
+/** A "what happens next?" chart (tsfm_rc.learn, `make lessons`): history, one path per answer, what happened. */
+export interface ForecastFigure {
+  series: string; shock_date: string; unit: string; measure: string;
+  observed: number[]; options: number[][]; realised: number[];
+  answer: number; example_closest: number; qlike_by_option: number[];
+  /** Pooled over every GARCH series of the fixtures, and per series. */
+  similar_shocks: { n: number; closest_by_option: number[]; series: Record<string, { n: number; closest_by_option: number[] }> };
+  levels: { calm_median: number; shock: number; long_run: number; persistence: number };
 }
 export interface PredictBlock { kind: "predict"; id: string; text: string; data: PredictData }
 export interface CheckpointBlock { kind: "checkpoint"; id: string; text: string }
@@ -87,4 +99,15 @@ export interface ResearchStatus {
     provenance: Record<string, string | boolean | null>; model_status: Record<string, { status: string; reason?: string; release_date?: string }> }[];
   real_results_available: boolean;
   terminal_tasks: TerminalTask[];
+  /** What the study is, from configs/default.yaml and the contamination rule (study.json). */
+  study: StudyFacts | null;
+}
+
+export interface StudyModel { name: string; label: string; hf_id: string; release_date: string; weights_date: string | null;
+  effective_release: string; clean_start: string }
+export interface StudyFacts {
+  config: string; config_hash: string; run: string;
+  data: { provider: string; tickers: number; start: string; end: string };
+  targets: string[]; horizons: number[]; baselines: string[]; primary_tests: number; buffer_days: number;
+  weights_dates_from: string | null; models: StudyModel[];
 }

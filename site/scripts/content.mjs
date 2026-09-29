@@ -149,6 +149,13 @@ export function loadLesson(dir, slug, repo, resultsIndex) {
     })),
     errors: loadYaml(join(dir, "errors.yaml")) ?? [],
   };
+  // chart questions: `figure: <name>` loads figures/<name>.json (written by `make lessons`)
+  for (const s of lesson.steps)
+    for (const b of s.blocks)
+      if (b.kind === "predict" && b.data?.figure !== undefined) {
+        const fp = join(dir, "figures", `${b.data.figure}.json`);
+        b.data.figureData = existsSync(fp) ? JSON.parse(readFileSync(fp, "utf8")) : null;
+      }
   // stable ids for activities: <step id>.<kind><n>
   for (const s of lesson.steps) {
     const count = {};
@@ -185,6 +192,14 @@ export function validateLesson(L, allIds) {
         if (!q.question || !q.explain) p.push(`step '${s.title}': predict needs question and explain`);
         if (q.options && !(Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length))
           p.push(`step '${s.title}': predict answer must index options`);
+        if (q.figure !== undefined) {
+          const f = q.figureData;
+          if (!f) p.push(`step '${s.title}': figure ${q.figure} missing (run \`make lessons\`)`);
+          else {
+            if (!q.options || f.options?.length !== q.options.length) p.push(`step '${s.title}': figure ${q.figure} needs one path per option`);
+            if (f.answer !== q.answer) p.push(`step '${s.title}': answer ${q.answer} differs from the figure's computed answer ${f.answer}`);
+          }
+        }
       }
     }
   }
