@@ -22,6 +22,7 @@ export const COLUMNS: Record<Table, string[]> = {
   flashcard_state: ["card_id", "lesson_id", "ease", "interval_days", "repetitions", "lapses", "due", "last_reviewed"],
   review_log: ["card_id", "grade", "reviewed_at", "interval_before", "interval_after", "ease_before", "ease_after"],
   session_log: ["started_at", "ended_at", "active_seconds", "events"],
+  journey_state: ["step_key", "status", "method", "detail", "started_at", "done_at"],
 };
 
 export interface RemoteRow {

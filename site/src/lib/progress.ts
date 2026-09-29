@@ -145,14 +145,18 @@ export function nextLessonStep(store: LocalStore, lessons: Lesson[] = allLessons
     .filter((x) => x.rec && x.rec.data.status === "in_progress")
     .sort((a, b) => (a.rec!.updated_at < b.rec!.updated_at ? 1 : -1));
   const pick = recs[0]?.l ?? lessons.find((l) => getProgress(store, l).status !== "completed");
-  if (!pick) return null;
-  const p = getProgress(store, pick);
-  let idx = Math.max(0, pick.steps.findIndex((s) => s.id === p.current_step));
-  if (stepDone(pick.steps[idx], p)) {
-    const firstOpen = pick.steps.findIndex((s, i) => i >= idx && !stepDone(s, p));
+  return pick ? lessonPlan(store, pick) : null;
+}
+
+/** Where to continue one lesson: the current step, or the first open step after it. */
+export function lessonPlan(store: LocalStore, lesson: Lesson): Plan {
+  const p = getProgress(store, lesson);
+  let idx = Math.max(0, lesson.steps.findIndex((s) => s.id === p.current_step));
+  if (stepDone(lesson.steps[idx], p)) {
+    const firstOpen = lesson.steps.findIndex((s, i) => i >= idx && !stepDone(s, p));
     if (firstOpen >= 0) idx = firstOpen;
   }
-  const remaining = pick.steps.filter((s) => !stepDone(s, p)).length;
-  const minutesLeft = Math.max(5, Math.round((pick.minutes * remaining) / pick.steps.length / 5) * 5);
-  return { lesson: pick, step: pick.steps[idx], stepIndex: idx, minutesLeft, mode: p.status === "in_progress" ? "continue" : "start" };
+  const remaining = lesson.steps.filter((s) => !stepDone(s, p)).length;
+  const minutesLeft = Math.max(5, Math.round((lesson.minutes * remaining) / lesson.steps.length / 5) * 5);
+  return { lesson, step: lesson.steps[idx], stepIndex: idx, minutesLeft, mode: p.status === "in_progress" ? "continue" : "start" };
 }

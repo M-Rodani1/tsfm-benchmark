@@ -19,6 +19,7 @@ const SAMPLE: Record<string, Record<string, unknown>> = {
   flashcard_state: { card_id: "01-1", lesson_id: "01", ease: 2.5, interval_days: 1, repetitions: 1, due: "2026-01-02", updated_at: "2026-01-01T00:00:00Z" },
   review_log: { card_id: "01-1", grade: 2, reviewed_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
   session_log: { started_at: "2026-01-01T00:00:00Z", ended_at: "2026-01-01T00:10:00Z", updated_at: "2026-01-01T00:00:00Z" },
+  journey_state: { step_key: "task:setup", status: "done", method: "output", detail: "27 checks", done_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" },
 };
 
 let db: PGlite;
@@ -89,6 +90,21 @@ describe("Supabase schema and row-level security", () => {
         expect(rows[0].user_id).toBe(A); // user_id defaulted to auth.uid()
         expect(rows[0].deleted).toBe(false);
       }
+    });
+  });
+
+  it("protects the journey table exactly like the others (same four policies, same grants)", async () => {
+    const policies = async (t: string) =>
+      (await db.query<{ policyname: string; cmd: string; roles: string; qual: string | null; with_check: string | null }>(
+        `select policyname, cmd, roles::text, qual, with_check from pg_policies where schemaname = 'public' and tablename = '${t}' order by policyname`)).rows;
+    expect(await policies("journey_state")).toEqual(await policies("lesson_progress"));
+    const grants = async (t: string) =>
+      (await db.query<{ grantee: string; privilege_type: string }>(
+        `select grantee, privilege_type from information_schema.role_table_grants where table_schema = 'public' and table_name = '${t}' and grantee in ('anon', 'authenticated') order by 1, 2`)).rows;
+    expect(await grants("journey_state")).toEqual(await grants("lesson_progress"));
+    await as("authenticated", A, async () => {
+      await expect(db.exec(insertSql("journey_state", "bad-status", { status: "maybe" }))).rejects.toThrow(/check constraint/);
+      await expect(db.exec(insertSql("journey_state", "bad-method", { method: "guess" }))).rejects.toThrow(/check constraint/);
     });
   });
 

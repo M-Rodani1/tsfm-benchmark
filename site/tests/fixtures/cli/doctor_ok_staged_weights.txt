@@ -1,0 +1,28 @@
+uv run tsfm-rc doctor 
+ ✓ OK    Python                            3.11.15 (/home/user/tsfm-benchmark/.venv/bin/python3)
+ ✓ OK    uv                                found on PATH
+ ✓ OK    package numpy                     1.26.4
+ ✓ OK    package pandas                    2.1.4
+ ✓ OK    package scipy                     1.11.4
+ ✓ OK    package statsmodels               0.15.0
+ ✓ OK    package arch                      8.0.0
+ ✓ OK    package lightgbm                  4.7.0
+ ✓ OK    package pydantic                  2.13.5
+ ✓ OK    package pyarrow                   25.0.1
+ ✓ OK    package matplotlib                3.11.2
+ ✓ OK    package yfinance                  1.7.0
+ ✓ OK    installed = locked                core numeric packages match uv.lock
+ ✓ OK    fixtures                          2 files match their SHA-256
+ ! WARN  real-data cache                   empty (no Yahoo downloads yet)
+                                           → Only needed for the real study: run `make fetch-data` (needs internet). Fixtures work offline.
+ ✓ OK    TSFM package torch                2.4.1
+ ✓ OK    TSFM package chronos-forecasting  2.3.2
+ ✓ OK    TSFM package timesfm              3.0.2
+ ✓ OK    TSFM package uni2ts               2.0.0
+ ✓ OK    weights chronos_bolt_tiny         amazon/chronos-bolt-tiny in the local Hugging Face cache
+ ✓ OK    weights timesfm_2p5_200m          google/timesfm-2.5-200m-pytorch in the local Hugging Face cache
+ ✓ OK    weights moirai_1p1_small          Salesforce/moirai-1.1-R-small in the local Hugging Face cache
+ ✓ OK    results                           stored runs: default_fixtures, smoke
+ ✓ OK    lessons                           11 lessons
+
+Everything needed for tests, lessons and `make smoke` works. 1 optional item(s) (!) matter only for the real study.

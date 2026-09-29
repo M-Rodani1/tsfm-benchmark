@@ -1,0 +1,43 @@
+# Phase 5 — a terminal task (format: site/content/README.md, "Terminal tasks").
+id: publish
+title: Publish the real results
+why: This site never computes statistics. It shows exactly what your laptop exported, with its provenance, so the numbers on the Results page are the stored ones.
+time: about 10 min, plus 2–4 min for the site to rebuild
+before:
+  - Phase 2 finished (`make reproduce` ended with the `[report]` and `[dashboard]` lines).
+commands:
+  - title: Export the stored results for the site
+    run: make publish-results
+    expect: "`[publish] default: version <12 hex digits> (real data) -> …` and no line saying `no real-data run published yet`. Synthetic runs are listed too, labelled `SYNTHETIC — not research results`."
+    time: seconds
+    errors:
+      - see: "[publish] no real-data run published yet: the website keeps showing the pending `make reproduce` task."
+        fix: The real study has no stored statistics on this laptop. Finish Phase 2 (`make reproduce`) first, in this same folder.
+
+  - title: Stage the exported files
+    run: git add site/public/data/results
+    expect: No output. `git status` would now list new files under `site/public/data/results/default/`.
+    time: seconds
+
+  - title: Commit them
+    run: 'git commit -m "Publish real results"'
+    expect: "`[main …] Publish real results` and a count of files changed."
+    time: seconds
+    errors:
+      - see: "Please tell me who you are."
+        fix: 'Run `git config --global user.name "Your Name"` and `git config --global user.email "you@example.com"`, then commit again.'
+
+  - title: Push them to GitHub
+    run: git push
+    expect: "A few lines ending with `main -> main`. Netlify then rebuilds the site in 2–4 minutes; reload this page afterwards and this step completes by itself."
+    time: 1 min, then 2–4 min for the rebuild
+    errors:
+      - see: "remote: Permission to M-Rodani1/tsfm-benchmark.git denied / fatal: Authentication failed"
+        fix: "Log in with the GitHub CLI (`gh auth login`, then `gh auth setup-git`) and push again."
+      - see: "! [rejected] main -> main (fetch first)"
+        fix: Someone pushed first. Run `git pull --rebase` and then `git push` again.
+check:
+  parser: publish
+  prompt: Paste the output of `make publish-results` (optional; the step completes by itself once the site shows your real run).
+  success: The Results page shows a published run of the real study (data from Yahoo Finance, not synthetic).
+  auto: real_results

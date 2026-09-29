@@ -1,0 +1,36 @@
+# Phase 7 — a terminal task (format: site/content/README.md, "Terminal tasks").
+id: audit
+title: Check everything and send the repository for audit
+why: A result nobody can check is not a result. An independent auditor re-runs and reads everything; the audit is what makes your write-up credible.
+time: about 15 min
+before:
+  - Lesson 10 done, with your write-up committed to the repository.
+commands:
+  - title: Update your copy
+    run: cd tsfm-benchmark && git pull
+    expect: "`Already up to date.` or a short list of updated files."
+    time: seconds
+
+  - title: Run the full test suite
+    run: make test
+    expect: "Rows of dots, then a last line like `302 passed, 9 warnings in 258.32s (0:04:18)`: some number **passed** and nothing **failed**."
+    time: about 5 min
+    errors:
+      - see: "= N failed, … ="
+        fix: A test is red. The `FAILED tests/…` lines above the summary name it; its message says what differs. Do not send the repository before the suite is green.
+      - error: "ModuleNotFoundError"
+
+  - title: Make sure everything is committed and pushed
+    run: git status
+    expect: "`Your branch is up to date with 'origin/main'.` and `nothing to commit, working tree clean`."
+    time: seconds
+    errors:
+      - see: "Changes not staged for commit / Your branch is ahead of 'origin/main'"
+        fix: "Commit your changes (`git add -A && git commit -m \"…\"`) and `git push`, then check again."
+
+  - title: Send it
+    text: "Send the auditor the repository link (https://github.com/M-Rodani1/tsfm-benchmark), the path of your write-up, and `docs/BUILD-REPORT.md`, which lists what was run, what could not be done and what is uncertain. If the repository is private, add the auditor as a collaborator first (GitHub → Settings → Collaborators)."
+check:
+  parser: tests
+  prompt: Paste the output of `make test` (at least the last 20 lines, including the summary line).
+  success: The full test suite passes on your laptop (some tests passed, none failed).

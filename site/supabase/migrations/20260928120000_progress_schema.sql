@@ -115,6 +115,26 @@ create table if not exists public.session_log (
   primary key (user_id, id)
 );
 
+-- The guided journey (docs/DECISIONS.md D-055): one row per journey step that has state, e.g.
+-- a terminal task checked from pasted output or self-reported, the study started on the
+-- laptop, the welcome tour seen. id = step key ("task:setup", "site:welcome", ...).
+-- Added by the "guided journey" fix; running this whole file again on an existing project
+-- adds it (every statement is idempotent).
+create table if not exists public.journey_state (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  id text not null,
+  step_key text not null,
+  status text not null check (status in ('started', 'done')),
+  method text check (method in ('output', 'self-reported', 'site', 'auto')),
+  detail text not null default '',
+  started_at timestamptz,
+  done_at timestamptz,
+  updated_at timestamptz not null,
+  server_updated_at timestamptz not null default now(),
+  deleted boolean not null default false,
+  primary key (user_id, id)
+);
+
 -- last-write-wins + server cursor
 create or replace function public.tsfm_lww() returns trigger
 language plpgsql
@@ -133,7 +153,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['lesson_progress', 'exercise_attempts', 'exercise_drafts', 'notes', 'flashcard_state', 'review_log', 'session_log']
+  foreach t in array array['lesson_progress', 'exercise_attempts', 'exercise_drafts', 'notes', 'flashcard_state', 'review_log', 'session_log', 'journey_state']
   loop
     execute format('drop trigger if exists tsfm_lww on public.%I', t);
     execute format('create trigger tsfm_lww before insert or update on public.%I for each row execute function public.tsfm_lww()', t);

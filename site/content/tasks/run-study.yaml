@@ -1,0 +1,59 @@
+# Phase 2 — a terminal task (format: site/content/README.md, "Terminal tasks").
+id: run-study
+title: Launch the real study
+why: The pre-registered study runs for hours but needs no attention. Starting it now means your real results are ready when you have learned how to read them.
+note: Start this now and keep learning while it runs.
+time: about 15 min of your time, then several hours unattended (not measured yet; the foundation models take most of it)
+long_running: true
+before:
+  - Phase 1 done (`make doctor ONLINE=1` without ✗).
+  - The laptop **plugged in**, with a stable internet connection for the first few minutes (market data and, if not yet cached, the model weights).
+  - About 10 GB of free disk space is still enough; the market data are small.
+commands:
+  - title: Go to the project folder and update it
+    run: cd tsfm-benchmark && git pull
+    expect: "`Already up to date.` or a short list of updated files."
+    time: seconds
+    errors:
+      - see: "cd: no such file or directory: tsfm-benchmark"
+        fix: The folder is somewhere else. Go to where you cloned it (Phase 1, “Get the code”), for example `cd ~/tsfm-benchmark`.
+
+  - title: Download the market data
+    run: make fetch-data CONFIG=configs/default.yaml
+    expect: "One line per ticker (26 in total), each `<TICKER> ok <first date>..<last date> (<n> rows, sha256 …)`, and no line saying `ticker(s) failed`."
+    time: 1–3 min
+    errors:
+      - see: "<TICKER> FAILED: …: possibly delisted; no timezone found (for every ticker)"
+        fix: "You are offline or Yahoo is blocking requests (yfinance then reports a misleading “possibly delisted”). Wait and try again later; tickers already downloaded are kept. Last resort, Yahoo-format CSVs with `provider: csv` (docs/DECISIONS.md, D-022)."
+      - see: "N ticker(s) failed. (only a few)"
+        fix: Run the same command again; only the missing tickers are downloaded.
+
+  - title: Keep the laptop awake and start the study
+    run_os:
+      macos: caffeinate -i make reproduce
+      windows: make reproduce
+      linux: systemd-inhibit --what=idle:sleep make reproduce
+    os_note:
+      macos: "`caffeinate -i` keeps the Mac awake exactly as long as the study runs. Keep the lid open (or use an external display) and the charger plugged in."
+      windows: "WSL stops when Windows sleeps. Before starting, in PowerShell run `powercfg /change standby-timeout-ac 0` (never sleep while plugged in); afterwards, `powercfg /change standby-timeout-ac 30` restores a 30-minute timeout."
+      linux: "`systemd-inhibit` stops the laptop from sleeping for as long as the study runs. Keep it plugged in."
+    expect: "Progress lines such as `[validate] configs/default.yaml: OK`, `[data] 26 tickers loaded from yfinance; 0 unavailable; …`, `[baselines] …`, one `[tsfm] <model>: AVAILABLE` line per foundation model, `[synthetic] …`, `[evaluate] …`, and at the very end `[report] …/reports/default/RESULTS.md` and `[dashboard] …`. Warnings such as `ConvergenceWarning` are normal."
+    time: several hours; leave the terminal window open (closing it stops the run)
+    errors:
+      - see: "[data] no data available; stopping. Run `make fetch-data` (needs network)."
+        fix: The market data are not downloaded. Run the previous command until it reports no failed tickers.
+      - see: "[tsfm] <model>: UNAVAILABLE: could not download … from Hugging Face"
+        fix: The run continues without that model, but part of the primary question stays unanswered. Afterwards run `make doctor ONLINE=1`, fix what it reports, and run `make reproduce` again. Foundation-model forecasts already made are cached, so it does not start from zero.
+      - see: "The run stopped when the laptop went to sleep or the terminal closed"
+        fix: Start it again with the same command. Foundation-model forecasts already made are cached (the slow part); the baselines are recomputed.
+      - see: "Killed / MemoryError"
+        fix: The laptop ran out of memory. Close other programs (browsers with many tabs use a lot) and start the same command again; foundation-model forecasts already made are cached.
+
+  - title: When it has finished, copy the output
+    text: Select the whole terminal output (or at least the last 40 lines, which include the `[report]` and `[dashboard]` lines) and paste it into the box below.
+check:
+  parser: study
+  prompt: Paste the output of `make reproduce` once it has finished (at least the last 40 lines).
+  success: "The `default` run finished: `[evaluate]`, `[report] …/reports/default/RESULTS.md` and `[dashboard]` lines, and no error."
+  auto: real_results
+  start_button: I've started `make reproduce`

@@ -40,7 +40,34 @@ export interface Lesson {
   errors: ErrorExplanation[];
 }
 
-export interface ContentBundle { lessons: Lesson[]; errors: ErrorExplanation[] }
+// The guided journey (site/content/journey.yaml + tasks/*.yaml, compiled by scripts/journey.mjs)
+export type Os = "macos" | "windows" | "linux";
+export interface JourneyStepDef {
+  key: string; // "lesson:04" | "task:setup" | "site:welcome"
+  kind: "lesson" | "task" | "site";
+  ref: string;
+  title: string;
+  minutes: number | null;
+  optional: boolean;
+  to: string;
+}
+export interface PhaseDef {
+  id: string; title: string; kind: "terminal" | "site"; goal: string; why: string; time: string; done: string;
+  note: string | null; requires: string[]; parallel_with: string[]; requires_real_results: boolean; steps: JourneyStepDef[];
+}
+export interface TaskCommand {
+  title: string; os: Os[]; optional: boolean; where: string | null; run: string | null; run_os: Record<Os, string> | null;
+  os_note: Partial<Record<Os, string>> | null; text: string | null; expect: string | null; time: string | null;
+  errors: { see: string; fix: string; source: "make doctor" | "errors.yaml" | "task" }[];
+}
+export interface TerminalTaskDef {
+  id: string; title: string; why: string; time: string; note: string | null; long_running: boolean; before: string[];
+  commands: TaskCommand[];
+  check: { parser: "doctor" | "study" | "publish" | "tests"; prompt: string; success: string; auto: "real_results" | null; start_button: string | null };
+}
+export interface JourneyDef { welcome: { title: string; body: string }[]; phases: PhaseDef[]; tasks: Record<string, TerminalTaskDef> }
+
+export interface ContentBundle { lessons: Lesson[]; errors: ErrorExplanation[]; journey: JourneyDef }
 
 export interface Runtime {
   pyodide: { version: string; indexURL: string; packageBaseUrl: string; packages: string[]; python: string;

@@ -16,6 +16,7 @@ export const TABLES = [
   "flashcard_state",
   "review_log",
   "session_log",
+  "journey_state",
 ] as const;
 export type Table = (typeof TABLES)[number];
 
@@ -274,7 +275,7 @@ export class LocalStore {
 
   async resetAll() {
     for (const t of TABLES) this.maps[t].clear();
-    await this.pending;
+    await this.flush();
     await this.backend.clear();
     this.bump();
   }

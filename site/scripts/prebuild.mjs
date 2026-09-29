@@ -1,5 +1,5 @@
 // Everything the site needs from the repository, generated before `vite build`/`vite dev`:
-//   src/generated/content.json   lessons + error explanations (from site/content)
+//   src/generated/content.json   lessons, error explanations and the guided journey (from site/content)
 //   src/generated/status.json    research status (from docs + published results)
 //   src/generated/runtime.json   Pyodide version/packages + tsfm_rc wheel location
 //   public/pyodide/v<ver>/       self-hosted Pyodide core (packages come from the CDN)
@@ -12,6 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildContent } from "./content.mjs";
 import { checkSupabaseEnv } from "./env.mjs";
+import { buildJourney } from "./journey.mjs";
 import { checkPyodide, pyodideDir } from "./pyodide.mjs";
 import { buildStatus } from "./status.mjs";
 import { buildWheel } from "./wheel.mjs";
@@ -41,6 +42,8 @@ if (env.problems.length) fail(env.problems);
 
 const content = buildContent(REPO);
 if (content.problems.length) fail(content.problems);
+const journey = buildJourney(REPO, content.lessons, content.errors);
+if (journey.problems.length) fail(journey.problems);
 const py = checkPyodide(content.lessons);
 if (py.problems.length) fail(py.problems);
 
@@ -78,7 +81,7 @@ mkdirSync(wheelDir, { recursive: true });
 writeFileSync(join(wheelDir, wheel.filename), wheel.bytes);
 
 if (!existsSync(join(PUB, "data", "results", "index.json"))) fail(["site/public/data/results/index.json missing: run `make publish-results`"]);
-writeJson(join(GEN, "content.json"), { lessons: content.lessons, errors: content.errors });
+writeJson(join(GEN, "content.json"), { lessons: content.lessons, errors: content.errors, journey: journey.journey });
 writeJson(join(GEN, "status.json"), buildStatus(REPO));
 writeJson(join(GEN, "runtime.json"), {
   pyodide: { version: py.version, indexURL: py.indexPath, packageBaseUrl: py.packageBaseUrl, packages: py.packages,
@@ -86,6 +89,6 @@ writeJson(join(GEN, "runtime.json"), {
   wheel: { url: `/py/${wheel.sha256.slice(0, 12)}/${wheel.filename}`, sha256: wheel.sha256, version: wheel.version },
   supabaseConfigured: env.configured,
 });
-console.log(`[prebuild] ${content.lessons.length} lessons, Pyodide ${py.version} (Python ${py.python}), ` +
+console.log(`[prebuild] ${content.lessons.length} lessons, ${journey.journey.phases.length} journey phases, ${Object.keys(journey.journey.tasks).length} terminal tasks, Pyodide ${py.version} (Python ${py.python}), ` +
   `packages ${py.packages.join(", ")}; wheel ${wheel.filename} (${wheel.modules} files); ` +
   `Supabase ${env.configured ? "configured" : "not configured (local-only mode)"}`);

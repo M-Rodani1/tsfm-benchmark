@@ -1,0 +1,5 @@
+uv run tsfm-rc publish-results
+[publish] default_fixtures: version ee685506f0c0 (SYNTHETIC — not research results) -> /home/user/tsfm-benchmark/site/public/data/results/default_fixtures/ee685506f0c0
+[publish] smoke: version ba09b3b967ba (SYNTHETIC — not research results) -> /home/user/tsfm-benchmark/site/public/data/results/smoke/ba09b3b967ba
+[publish] no real-data run published yet: the website keeps showing the pending `make reproduce` task.
+[publish] commit site/public/data/results and push; the website rebuilds from it.
