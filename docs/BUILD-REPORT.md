@@ -562,3 +562,161 @@ on the released code and pass with the fix.
 - Otherwise nothing: Netlify rebuilds from `main` on the next push. A browser that showed
   the blank page recovers by itself on the next load, with its progress intact.
 
+
+## 12. Design: the study console (Direction B)
+
+Written 2026-09-29, after the "Study console" redesign prompt and its two comps (Home, and a
+lesson step with a chart question). The site now looks and behaves like a console for one
+study. The next action comes first; what runs on your laptop is shown with how the site knows
+it; reading happens in a calm serif column. The reference is `site/DESIGN.md`
+(tokens, type, layout, data semantics, states); the decisions are D-059 and D-060.
+
+### 12.1 Commits
+
+| Part | Commit | What |
+|---|---|---|
+| 1/4 | `5f48eb8` | `study_facts()` and `study.json` (models under test from the config and buffer); lesson 02's chart question, its figure generator and tests |
+| 2/4 | `c91b215` | Self-hosted fonts, the tokens (light + dark), `DESIGN.md`, contrast and format tests |
+| 3/4 | `2069589` | Top bar, rail, Home, lessons and predict, every other page, states, browser tests with axe |
+| 4/4 | the commit adding this section | Screenshots and their script, docs |
+
+### 12.2 What changed, and what did not
+
+**Changed** (appearance, layout, interaction):
+
+- the tokens, the type and the 6px shape, with no shadows and no card grids;
+- a 56px top bar and a 290px rail on every console page;
+- Home: the next action, "The study on your laptop" with its evidence tiers and the "It has
+  finished" dialog, "Models under test", and the Today column;
+- lesson pages: the step rail, "Step N of M", serif reading at 19px/1.7 and 65ch, and exactly
+  one primary Next;
+- predict questions: radios in a fieldset, a Check button, an `aria-live` result, Continue and
+  Try again;
+- charts follow the data semantics: observed values solid graphite, forecasts blue dashed,
+  labels at line ends, the selected model blue;
+- responsive rules at 1200, 860 and 390px;
+- loading, error and empty states (DESIGN.md, "Controls and states").
+
+**Not changed:**
+
+- the research code and the statistics;
+- what any existing lesson teaches;
+- `lib/journey.ts` and `nextAction()`: the Vitest journey tests pass unchanged;
+- the stored data formats, the CSP (`font-src 'self'` holds: fonts come from `@fontsource`,
+  latin subsets only) and the security rules (anon key only; no raw prices published).
+
+**Two additions, both needed by the comps and derived from the repository:**
+
+- **`study.json`.** Home's "Models under test" shows each model, when its weights were
+  released and the first clean test day. `tsfm_rc.pipeline.publish.study_facts` computes these
+  from `configs/default.yaml` and the contamination rule (`contamination.windows`: effective
+  release + 30-day buffer). Once a real run has recorded the weights' commit dates, those are
+  used, exactly as in the study. `make publish-results` writes the file, and
+  `tests/test_publish.py` checks it is current and equals the window rule. No date is typed by
+  hand.
+- **Lesson 02's chart question** ("Volatility comes in clusters", a new step before "Three ways
+  to measure one day's variance"). It is new content, not a change to existing content. §12.4
+  explains how its answer is decided and what went wrong on the way.
+
+**Three presentation changes to existing wording, noted for the auditor:**
+
+- The breadcrumb on a lesson reads "Phase 3 · Foundations · lesson 2 of 4" (it was "step 2 of
+  4", which clashed with the lesson's own steps).
+- Home's heading reads "Next: <lesson or task title>". The button keeps "Start/Continue lesson
+  NN".
+- "Where progress is saved" moved from a banner on every page to Home, Account and the top bar
+  (D-059).
+
+The browser tests were updated to these texts and to the radio-based predict.
+
+### 12.3 How it was verified
+
+- **Unit** (Vitest, 157 tests):
+  - `tests/design.test.ts` parses the tokens from `styles.css` and checks WCAG contrast for
+    every text token on the background, surface and tint in both themes (73 checks), plus the
+    primary button, the disabled button, code, the data lines and the Results matrix bins;
+  - it also checks that the system-dark and chosen-dark themes are identical;
+  - `tests/format.test.ts` checks the dates ("26 Nov 2024" in every locale).
+- **Browser** (Playwright, `e2e/design.spec.ts`), all passing:
+  - the chart question: Check disabled with its reason, the forecast drawn dashed, what happened
+    drawn on check, tags, the live result, Try again keeping the stored answer, Continue moving
+    focus;
+  - Home's study table, evidence labels, models from `study.json`, the rail, and the dialog
+    with a real captured output;
+  - at 390px: no sideways scroll on eight pages, 44px targets, the next action above the fold,
+    the rail disclosure, the menu, and stacked tables;
+  - an axe scan (WCAG 2.2 A/AA) of nine pages in light and in dark: no violations.
+- **All other browser tests** pass after the updates (19 of 19 here). The 12 exercise tests
+  need the Pyodide CDN and run in CI only. Their navigation was also checked here without
+  Python.
+- **Screenshots**: 66 files in `site/docs/screenshots/`. The matrix is 1440, 1024 and 390px ×
+  light and dark, over Home (fresh, study running, published, all done), the four predict
+  states, Your path and Results, plus the rail opened at 390 and the dialog. I compared them
+  with the comps and fixed the gaps in one batch, then recaptured:
+  - the stacked table lost its status on merged rows;
+  - locale-dependent "Sept" dates;
+  - a duplicated glyph on Your path;
+  - chart text shrinking to 5px on phones (the chart now lays out at its shown width);
+  - the step heading's spacing;
+  - a long unavailable-models notice (now collapsed);
+  - a select that widened the page at 390;
+  - the task status alignment.
+- **The published and all-done Home states cannot occur yet** (no real run exists). Their
+  screenshots come from a temporary build with a fake run, are named `-SIMULATED`, and are
+  explained in the screenshots README.
+- **Full pytest suite:** 306 passed, before and after the chart-question fix (§12.4).
+
+### 12.4 The chart question: two mistakes, and the rule now used
+
+The comp shows a lesson step where you forecast volatility after a shock, then see what
+happened. The data come from the committed fixtures' latent volatility (the truth, since the
+series are simulated). The answer should come from the data, not from me. It took three
+attempts, and the first two were wrong in ways an auditor should know about.
+
+1. **Attempt 1.** SYN_GARCH_A, the largest jump, scored with log-MSE. "Snap back" came out
+   closest. I then changed the loss to QLIKE (the study's volatility loss, which is
+   defensible) and the series to SYN_GARCH_B. The series change was made after seeing the
+   result. That is a forking path.
+2. **Attempt 2.** On B, events were "calm 60 days, shock ≥ 1.3× the calm median, and **no
+   larger shock in the next 40 days**". The fade won 5 of 7 shocks, and the example was the
+   most recent event. While writing this report I ran the same rule on the other two GARCH
+   series. SYN_GARCH_A gave 5 of 8 for snap back and SYN_QUIRKS gave 16 of 18 for snap back.
+   The cause was the third condition, which looks at the future: it keeps only shocks with a
+   calm aftermath, so it biases towards "snap back". This is a look-ahead selection in a
+   course that teaches look-ahead bias (lesson 03).
+3. **The rule now used** (D-060).
+   - It never looks past the shock day: after an event the next 40 days are skipped, and the
+     first event wins.
+   - It pools every GARCH series of the fixtures (A, B, QUIRKS), so no choice of series
+     decides.
+   - Result: 73 shocks. The slow fade was closest 45 times, snapping back 23, climbing 5. Per
+     series: A 15/5/3, B 13/2/1, QUIRKS 17/16/1. The average variance 40 days after a shock
+     is 0.73–0.86 of the shock's (it fades slowly).
+   - The lesson's answer (the slow fade) was already the answer before this fix. It holds
+     under the corrected rule, clearly in A and B and narrowly in QUIRKS.
+   - The result panel shows the pooled tally, so a learner sees that "most likely" is a
+     frequency, not a certainty.
+   - `tests/test_lessons.py` recomputes the figure, and checks the pooling and that the fade is
+     the most frequent in every series.
+
+What remains a judgement:
+
+- the thresholds (1.35 calm, 1.3× shock, 60/40 days) and the three candidate paths were set
+  by me, not pre-registered;
+- the example shown is the most recent shock of SYN_GARCH_B, a display choice;
+- it is teaching material about synthetic series, not a finding about markets.
+
+### 12.5 Known weaknesses
+
+- **Pending ring below 3:1.** The pending ring `#A3ABB6` has a contrast of 2.32:1 on white.
+  It is kept because the brief specifies it, and it is always paired with a word
+  (DESIGN.md).
+- **Stacked tables and merged cells.** When stages share one status, desktop shows it once
+  across rows. The stacked phone layout repeats it per row instead. CSS shows only one copy at
+  a time, so assistive technology meets it once.
+- **Results matrix at 390px.** The matrix (10 numeric columns) scrolls inside its own box at
+  390px rather than stacking. Stacking would make the comparison unreadable.
+- **Axe covers the states the tests reach.** The axe scan covers nine pages in the states the
+  tests create. Pages behind a real Supabase sign-in were not scanned (no project here).
+- **Screenshot vantage.** The screenshots come from headless Chromium only. Safari and Firefox
+  were not checked visually.

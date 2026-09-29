@@ -783,3 +783,45 @@ One of the specified object stores was not found".
   Results page" counts only once a real run is published.
 - **OS tabs** remember the choice in `localStorage` (a per-browser convenience). They default
   to the visitor's operating system.
+
+### D-059 — The study-console redesign (Direction B)
+- **Appearance only.** The redesign changes how the site looks and how its controls behave. It
+  does not change the research code, the statistics, what a lesson teaches, or the journey
+  logic (`lib/journey.ts` and `nextAction()` are untouched; only their presentation moved).
+  Tokens, type and layout: `site/DESIGN.md`.
+- **Two additions the comps needed**, both derived from the repository and never typed by hand:
+  - `study.json`: `tsfm_rc.pipeline.publish.study_facts`, written by `make publish-results`.
+    It holds the models under test, the weights' release dates and the first clean test day
+    (config + contamination buffer, the same rule as `contamination.windows`).
+  - Lesson 02's chart question (D-060).
+- **How Home knows about the laptop.** The site cannot see your laptop, so the study table
+  labels every stage by its evidence: *Detected* (a real run is published on this site),
+  *Verified from output* (the pasted output passed the check) or *Self-reported*. A study you
+  started is only ever self-reported as running. Stages that share one fact show it once.
+- **Where progress is saved** is said on Home (Today) and Account, and in the top bar. It is no
+  longer a banner on every page. Problems are still shown on every page: a failed sync (with
+  *Try again*), offline, or a failed save.
+- **Predict**: native radios in a fieldset, a separate "Check" button. The first checked answer
+  is stored; "Try again" lets you explore without changing it (it used to be one click to
+  answer, with no way back).
+
+### D-060 — Lesson 02's chart question: how its answer is decided
+The question "Over the next 40 days, volatility will most likely …" is answered from the
+committed fixtures, not by assertion. For every calm-then-shock day of every GARCH series in
+the fixtures:
+- a calm-then-shock day has a calm previous 60 days (max/median ≤ 1.35) and a shock at least
+  1.3 times the calm median;
+- the first such day wins, and the next 40 days are skipped;
+- nothing after the shock day enters the selection;
+- the closest option is the one with the lowest QLIKE (the study's volatility loss) against
+  the latent volatility of the next 40 days.
+
+The answer is the option closest most often, pooled over all series. The chart shows the most
+recent shock of SYN_GARCH_B.
+
+Result: 73 shocks; the slow fade was closest 45 times, snapping back 23, climbing 5. The slow
+fade is also the most frequent in each series on its own, narrowly in SYN_QUIRKS (17 to 16).
+The rule was changed twice before this version, both times after seeing a result (BUILD-REPORT
+§12.4). That is why it now pools every GARCH series and never looks ahead: no choice of series
+or window can decide the answer. `tests/test_lessons.py` recomputes the figure and checks the
+answer, the pooling and the per-series plurality.

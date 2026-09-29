@@ -4,23 +4,25 @@ Static single-page app (Vite + React + TypeScript). Lessons run Python in the br
 (Pyodide, in a Web Worker); results are read from `public/data/results` (exported by
 `make publish-results`); progress is stored in IndexedDB and synced to Supabase.
 Design decisions: `docs/DECISIONS.md` D-043 to D-051 and D-055 to D-058 (the guided
-journey). Deployment: `docs/DEPLOY.md`.
+journey). Deployment: `docs/DEPLOY.md`. How it looks (tokens, type, layout, data semantics,
+states): `DESIGN.md`, with screenshots in `docs/screenshots/`.
 
 ## The guided journey
 
 A first-time visitor always knows what to do next, and why:
 
 - **The tour.** The first visit to Home opens a three-screen tour, ending with
-  "Start lesson 00". It can be re-opened from *Tour* in the menu.
-- **Do this next.** Home shows one card with the next step of the whole project: what, why,
-  how long, and one button.
+  "Start lesson 00". It can be re-opened from *Tour* under Your path.
+- **Next.** Home shows the next step of the whole project (what, why, how long, and one
+  button), the study on your laptop with how the site knows each part of it, and the models
+  under test. The rail beside it shows every phase.
 - **Your path.** This page shows the route: eight phases, from the tour to a published,
   audited study.
 - **Your laptop.** Steps done there (set up, run the study, publish, test) have their own
   pages. Each gives numbered commands for macOS, Windows (WSL) or Linux, says what you should
   see, and checks the output you paste back.
 - **Where you are.** Every lesson and task page shows a breadcrumb (for example
-  "Phase 3 · Foundations · step 2 of 4") and ends with a single "Next step" button.
+  "Phase 3 · Foundations · lesson 2 of 4") and ends with a single primary "Next" button.
 
 How it works:
 
@@ -42,6 +44,7 @@ npm run dev        # http://localhost:5173 (runs scripts/prebuild.mjs first)
 npm run lint       # ESLint + TypeScript
 npm test           # unit tests (Vitest), incl. RLS on a real Postgres (PGlite)
 npm run e2e        # production build + Playwright (Chromium) under the production headers
+node scripts/screenshots.mjs [--simulated]   # after a build: docs/screenshots (see its README)
 ```
 
 | Path | What |
