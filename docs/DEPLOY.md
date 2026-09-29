@@ -31,12 +31,15 @@ a Supabase account (both have free tiers), and access to the DNS settings of you
 2. Open `site/supabase/migrations/20260928120000_progress_schema.sql` from this repository,
    copy the **whole file**, paste it into the editor and click **Run**. It should finish with
    "Success. No rows returned".
-3. Check the result: open **Table Editor**. You should see seven tables (`lesson_progress`,
+3. Check the result: open **Table Editor**. You should see eight tables (`lesson_progress`,
    `exercise_attempts`, `exercise_drafts`, `notes`, `flashcard_state`, `review_log`,
-   `session_log`), and none of them should carry a red "RLS disabled" / "Unrestricted"
-   badge. Under **Authentication → Policies** each table has four policies (`own_rows_*`).
+   `session_log`, `journey_state`), and none of them should carry a red "RLS disabled" /
+   "Unrestricted" badge. Under **Authentication → Policies** each table has four policies
+   (`own_rows_*`).
 
-   Running the file twice is safe. If you prefer the Supabase CLI:
+   Running the file twice is safe. **If you set up Supabase before the guided journey was
+   added** (seven tables, no `journey_state`), run the whole file again: it adds the new
+   table with the same protection and leaves your data alone. If you prefer the Supabase CLI:
    `supabase link --project-ref <ref>` and then `supabase db push` from `site/`.
 
 ## 3. Set up login for one user (about 3 minutes)
@@ -78,7 +81,8 @@ a Supabase account (both have free tiers), and access to the DNS settings of you
 
 ## 5. First visit and first sign-in
 
-1. Open the `https://<random-name>.netlify.app` address Netlify shows.
+1. Open the `https://<random-name>.netlify.app` address Netlify shows. The first visit starts
+   a three-screen tour (skip it or go through it; *Tour* in the menu opens it again).
 2. The yellow banner says progress is saved in this browser only. Click **Progress & sync**,
    enter your email and click **Email me a sign-in link**. Open the link from the email on the
    same device: the banner disappears and the top-right shows **Synced**.
@@ -109,14 +113,30 @@ lessons also work offline.
 ## 7. Keeping it up to date
 
 - **New results.** After `make reproduce` on your computer, run `make publish-results`,
-  then `git add site/public/data/results`, `git commit` and `git push`. Netlify rebuilds
-  automatically, and the home page's "terminal task" disappears once a real-data run is
-  published.
+  then `git add site/public/data/results`, `git commit` and `git push` (Phase 5 on the site
+  walks you through it). Netlify rebuilds automatically. Once the site shows a published
+  real run of the study (`default`, not synthetic), it marks phases 1, 2 and 5 of **Your
+  path** as done by itself and unlocks phases 6–7.
 - **Lesson edits.** Edit `site/content/…`, run `make lessons` (regenerates the notebooks) and
   `make test`, then commit and push.
 - **Backups.** Besides Supabase, **Progress & sync → Download my progress (JSON)** saves
   everything in one file; **Restore from a file…** merges it back (the newer version of
   each record wins).
+
+## How the site guides you
+
+The site is built around a guided journey (`site/content/journey.yaml`): eight phases from a
+short tour to a published, audited study.
+
+- **What to do next.** Home always shows one *Do this next* card. **Your path** shows every
+  phase and step.
+- **Terminal steps.** Steps done on your laptop have pages with the commands for macOS,
+  Windows (WSL) or Linux, what you should see, and a box that checks the output you paste
+  back. Only a short summary of the check is stored, never the pasted text.
+- **Where it is saved.** Journey state is stored and synced like the rest of your progress
+  (table `journey_state`).
+- **Nothing to configure.** The journey needs no settings beyond the Supabase and Netlify
+  steps above.
 
 ## Security notes
 

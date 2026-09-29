@@ -117,6 +117,30 @@ print(m.query("ticker == 'POOLED' and period == 'full' and window == 'expanding'
       [["model", "qlike", "mse"]].round(3).to_string(index=False))
 
 # %% [markdown]
+# ## How to use this site
+#
+# The **Home** page always shows one card, *Do this next*: the next step of the whole project,
+# why it matters and how long it takes. **Your path** in the menu shows the full route, eight
+# phases from this lesson to a published study.
+#
+# Some steps happen on your laptop, in a terminal. Their pages give every command with a copy
+# button, say what you should see, and check the output you paste back. The real study
+# (Phase 2) takes hours but needs no attention: start it early and keep doing lessons while it
+# runs.
+#
+# 🤔 **Predict before you run:** Your study is running on your laptop and will take hours. What do you do meanwhile?
+#
+# - Wait: the lessons need the real results
+# - Keep going with lessons 01–08: they use the committed synthetic data
+# - Run it on this site instead, which is faster
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **Keep going with lessons 01–08: they use the committed synthetic data.** Lessons 01–08 never wait for the study. Only lessons 09 and 10 read your real results; until they exist, those lessons show the synthetic runs, clearly labelled. The study itself is far too heavy for a browser.
+#
+# </details>
+
+# %% [markdown]
 # ## How every lesson works, and your first checkpoint
 #
 # - **Predict first**, then run: wrong predictions are where the learning happens.

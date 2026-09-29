@@ -43,7 +43,7 @@ test("complete a lesson step, then reload: progress and position persist", async
   await expect(page.getByTestId("predict-feedback")).toContainText("Right");
   await page.goto("/");
   await expect(page.getByTestId("next-action")).toContainText("Continue lesson 00");
-  await expect(page.getByTestId("next-action")).toContainText("step 2 of 6");
+  await expect(page.getByTestId("next-action")).toContainText("step 2 of 7");
   await expect(page.getByTestId("next-action-button")).toHaveAttribute("href", "/lessons/00?step=is-the-data-what-it-should-be");
 });
 

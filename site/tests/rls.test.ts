@@ -108,6 +108,17 @@ describe("Supabase schema and row-level security", () => {
     });
   });
 
+  it("can be run again on a project that already has data (how an existing project gets journey_state)", async () => {
+    const count = async () => (await db.query<{ n: number }>("select count(*)::int as n from public.lesson_progress")).rows[0].n;
+    const before = await count();
+    expect(before).toBeGreaterThan(0); // rows written by the tests above
+    for (const f of readdirSync(MIG).filter((n) => n.endsWith(".sql")).sort()) await db.exec(readFileSync(join(MIG, f), "utf8"));
+    expect(await count()).toBe(before);
+    const p = await db.query<{ tablename: string; n: number }>("select tablename, count(*)::int as n from pg_policies where schemaname = 'public' group by 1");
+    expect(p.rows.length).toBe(TABLES.length);
+    for (const r of p.rows) expect(r.n, r.tablename).toBe(4);
+  });
+
   it("gives the anonymous role no access at all", async () => {
     await as("anon", null, async () => {
       for (const t of TABLES) await expect(db.query(`select * from public.${t}`), t).rejects.toThrow(/permission denied/);
@@ -131,4 +142,34 @@ describe("Supabase schema and row-level security", () => {
       expect(after.server_updated_at > first.server_updated_at).toBe(true);
     });
   });
+});
+
+describe("upgrading a project set up before the guided journey", () => {
+  it("running the current migration on the old seven-table schema adds journey_state, protected, and keeps the data", async () => {
+    const MIGFILE = join(MIG, "20260928120000_progress_schema.sql");
+    const current = readFileSync(MIGFILE, "utf8");
+    // the schema as committed before the journey (3f02ef0): the same file without the journey parts
+    const old = current.slice(0, current.indexOf("-- The guided journey")) +
+      current.slice(current.indexOf("-- last-write-wins + server cursor")).replace(", 'journey_state']", "]");
+    expect(old).not.toContain("journey_state");
+    const pg = new PGlite();
+    await pg.exec(`
+      create schema auth; create table auth.users (id uuid primary key);
+      create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+      create role anon nologin; create role authenticated nologin;
+      grant usage on schema public to anon, authenticated; grant usage on schema auth to anon, authenticated;
+      grant execute on function auth.uid() to anon, authenticated;
+      insert into auth.users values ('${A}');`);
+    await pg.exec(old);
+    await pg.exec(`insert into public.notes (user_id, id, lesson_id, body, updated_at) values ('${A}', 'n1', '01', 'kept', '2026-01-01T00:00:00Z')`);
+    await pg.exec(current);
+    const tables = (await pg.query<{ relname: string; relrowsecurity: boolean }>(
+      "select c.relname, c.relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r'")).rows;
+    expect(tables.map((r) => r.relname).sort()).toEqual([...TABLES].sort());
+    expect(tables.every((r) => r.relrowsecurity)).toBe(true);
+    const policies = (await pg.query<{ n: number }>("select count(*)::int as n from pg_policies where tablename = 'journey_state'")).rows[0].n;
+    expect(policies).toBe(4);
+    expect((await pg.query<{ body: string }>("select body from public.notes where id = 'n1'")).rows[0].body).toBe("kept");
+    await pg.close();
+  }, 60_000);
 });

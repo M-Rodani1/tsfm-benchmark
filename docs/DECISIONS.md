@@ -660,3 +660,110 @@ through it.
 **Consequence for the analysis.** Near-ties between GARCH variants (and their MCS p-values)
 are machine-sensitive at this level. A difference that small is not evidence either way.
 
+
+### D-055 — The guided journey: one route, one next action (guided-journey fix)
+**Problem.** The site had lessons, a "continue" card and a terminal-task card, but nothing
+showed the whole route. It did not say in what order to work, how terminal work fits
+alongside the lessons, or what "done" means.
+
+**Single source.** `site/content/journey.yaml` defines eight phases, P0 to P7. Each has a
+goal, why, time, steps and done criteria. A step is a lesson, a terminal task
+(`site/content/tasks/<id>.yaml`) or a site action (tour, Results, review). It is validated at
+build time: every lesson and task appears exactly once, all references resolve, goals are one
+sentence, and text fields are strings.
+
+**Ordering.**
+- *`requires` is a hard dependency only.* P2 needs P1, P5 needs P2, P6 needs P5, and P6–P7
+  need real results. Only such a step shows as *locked*.
+- *Recommendations live in `nextAction()`.* After lesson 00 it points to P1 and then P2
+  right away, because P2 runs for hours unattended. Lessons 01–08 are offered as a secondary
+  link while a laptop step waits, and become the next action while the study runs.
+- *Lessons are never hard-locked.* A locked lesson page stays usable, with a banner.
+
+**Statuses.** The brief lists done, in progress, next, locked and optional. A sixth,
+*upcoming*, was added for a step that is available but not the recommended one. Calling
+lesson 03 "locked" while lesson 01 is next would be false.
+
+**Real results** means a published run named `default` (the pre-registered study) whose data
+source is Yahoo Finance or CSV. That is `publish.py`'s rule for non-synthetic runs: any other
+source is labelled `SYNTHETIC — not research results`. The run must be `default` because
+`smoke_real` is also real data but is not the study. When real results exist, P1, P2 and P5
+are marked done automatically (`auto: real_results`). This is a build-time fact: it changes
+when a push of `site/public/data/results` makes Netlify rebuild.
+
+**How a terminal step is completed,** in order of strength:
+1. auto-detected;
+2. a pasted output that the site checks (D-056);
+3. "I've done this", recorded and shown everywhere as **self-reported**.
+
+The long-running study has a separate *started* state, set by its start button or by pasted
+output that shows it running. It drives the "Study running on your laptop?" card.
+
+**Tests.** `site/tests/journey.test.ts` checks `nextAction()` and the statuses for a fresh
+user, mid-lesson, after lesson 00, with P2 running, with results published, when pushed but
+not yet rebuilt, and when everything is done. It also checks that exactly one step is ever
+*next*, the breadcrumbs, and the YAML validation.
+
+### D-056 — Checking pasted terminal output (guided-journey fix)
+**Where the markers come from.** `site/src/lib/cliparse.ts` recognises output by strings
+copied from the code that prints them:
+- `doctor.py`: check lines, `→` fixes and the three summary lines;
+- `cli.py`: fetch statuses, `[validate]`, `[report]`, `[dashboard]`, `[publish]`;
+- `pipeline/run.py`: `[data]`, `[tsfm] … AVAILABLE|UNAVAILABLE`, `[evaluate]`;
+- GNU make and shell messages.
+
+`tests/test_doctor_flashcards.py::test_site_output_markers_match_the_cli` fails if the CLI's
+wording drifts away from the parser.
+
+**What counts as success:**
+- *Phase 1:* the doctor ran to the end with no ✗, and no ! except the real-data cache, stored
+  results, lessons and uv, which are empty or optional before Phase 2.
+- *Phase 2:* a finished pipeline run with `[evaluate]`, `[report] …/reports/default/…` and
+  `[dashboard]`. A finished run of another config is rejected by name. UNAVAILABLE models are
+  accepted but flagged.
+- *Phase 5:* the export alone is only progress; the step completes when the site shows the
+  real run.
+- *Phase 7:* pytest's summary line, with some tests passed and none failed.
+
+A Python traceback is explained with the lesson runner's own `errors.yaml`.
+
+**Privacy.** Only a one-line summary of the check is stored (for example "24 checks:
+23 ✓, 1 !, 0 ✗"), never the pasted text, which can contain paths and user names.
+
+**Evidence.** The tests use output captured by running the commands on 2026-09-29
+(`site/tests/fixtures/cli/README.md`).
+- *Staged:* the Phase 1 success case ran the real doctor against a staged weights cache,
+  because Hugging Face is unreachable from the build container.
+- *Derived:* the real study and a real publish cannot run there, so those cases are derived
+  in the tests from real captures by changing only the run name or label. The tests say so.
+
+### D-057 — Journey state storage (guided-journey fix)
+**Table.** A new table, `journey_state`, holds one row per step that has state
+(`step_key`, `status` started/done, `method` output/self-reported/site/auto, a short
+`detail`, `started_at`, `done_at`). It is local-first in IndexedDB and synced with the same
+last-write-wins rule as all progress (D-047). "Reset this step" writes a tombstone.
+
+**Security.** It is added to the one migration file, with RLS identical to the other tables
+(the same loop creates its policies and grants). `site/tests/rls.test.ts` checks four
+things:
+- its four policies and grants equal those of `lesson_progress`;
+- users are isolated and the anonymous role has no access;
+- re-running the file on a project with data is safe;
+- the old seven-table schema upgrades to the new one, keeping its data.
+
+Export and import include the table. Older export files without it still import.
+
+### D-058 — Journey UI choices (guided-journey fix)
+- **The tour** opens automatically only on Home, and only until it is finished or skipped.
+  Deep links into a lesson are never redirected. It can be re-opened from *Tour* in the menu.
+- **Home** shows one "Do this next" card with one button. A lesson is offered as a text link
+  when the next step needs the laptop ("Not at your laptop? …"), because P3–P4 legitimately
+  run in parallel with P2.
+- **"Next step" at the end of lessons** replaces "Next: lesson NN": after lesson 00 the route
+  continues on the laptop, not with lesson 01. When the page is itself the next step, the
+  button points at what finishes it: the open lesson step, or the output check.
+- **The SYNTHETIC banner** with links to phases 2 and 5 is shown on lessons 09 and 10 (both
+  in phases that need real results) and on the Results page. The Phase 6 step "Open the
+  Results page" counts only once a real run is published.
+- **OS tabs** remember the choice in `localStorage` (a per-browser convenience). They default
+  to the visitor's operating system.
