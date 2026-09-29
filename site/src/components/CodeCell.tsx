@@ -38,7 +38,7 @@ export function CodeCell({ lesson, block }: { lesson: Lesson; block: PythonBlock
     <div className="cell activity" data-testid="code-cell" data-cell={block.id}>
       <div className="cell-toolbar">
         <button className="primary small" type="button" onClick={run} disabled={running} data-testid="run">
-          {running ? "Running…" : "▶ Run"}
+          {running ? "Running…" : "Run"}
         </button>
         {edited && <button className="small" type="button" onClick={draft.reset}>Reset to original</button>}
         <span className="label">Python · editable · Shift+Enter runs{edited ? " · edited (autosaved)" : ""}</span>

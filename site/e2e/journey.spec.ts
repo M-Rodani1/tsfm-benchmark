@@ -40,7 +40,7 @@ function lesson00AlmostDone() {
 
 async function expectNext(page: Page, text: RegExp | string, href: string) {
   await page.goto("/");
-  await expect(page.getByTestId("next-action-title")).toContainText(text);
+  await expect(page.getByTestId("next-action")).toContainText(text);
   await expect(page.getByTestId("next-action-button")).toHaveAttribute("href", href);
 }
 
@@ -57,10 +57,10 @@ test("first visit goes through the welcome tour to lesson 00", async ({ page }) 
   await page.getByTestId("welcome-start").click();
   await expect(page).toHaveURL(/\/lessons\/00$/);
   await expect(page.getByTestId("lesson-intro")).toBeVisible();
-  await expect(page.getByTestId("breadcrumb")).toHaveText("Phase 0 · Start here · step 2 of 2");
+  await expect(page.getByTestId("breadcrumb")).toHaveText("Phase 0 · Start here · lesson 1 of 1");
   // the tour does not come back by itself, but the menu re-opens it
-  await expectNext(page, "Lesson 00", "/lessons/00?step=what-runs-where");
-  await page.getByRole("link", { name: "Tour", exact: true }).click();
+  await expectNext(page, "lesson 00", "/lessons/00?step=what-runs-where");
+  await page.getByRole("link", { name: "Tour", exact: true }).click(); // under Your path
   await expect(page.getByTestId("welcome")).toHaveAttribute("data-screen", "1");
 });
 
@@ -70,10 +70,11 @@ test("finishing lesson 00 leads to Phase 1; a pasted doctor success completes it
 
   // finish lesson 00 by answering its last open activity
   await page.getByTestId("next-action-button").click();
-  await page.getByTestId("predict").getByRole("button", { name: /own computer/ }).click();
-  await expect(page.getByTestId("step")).toContainText("step done");
+  await page.getByTestId("predict").getByRole("radio", { name: /own computer/ }).check();
+  await page.getByTestId("predict-check").click();
+  await expect(page.getByTestId("step")).toContainText("Step done");
   const L = content.lessons[0];
-  await page.getByRole("button", { name: L.steps[L.steps.length - 1].title }).click();
+  await page.getByRole("navigation", { name: "Steps of this lesson" }).getByRole("button", { name: L.steps[L.steps.length - 1].title }).click();
   await expect(page.getByTestId("lesson-complete")).toBeVisible();
   // the end of the lesson: ONE next step, from the journey (not "next lesson")
   await expect(page.getByTestId("journey-next-button")).toHaveCount(1);
@@ -143,7 +144,9 @@ test("while the study runs, lessons come next and Home says so; self-reported st
   await expect(page.getByTestId("task-started")).toBeVisible();
   await page.goto("/");
   await expect(page.getByTestId("study-running")).toContainText("Keep going with lessons. Come back here when it finishes");
-  await expect(page.getByTestId("next-action-title")).toContainText("Lesson 01");
+  await expect(page.getByTestId("next-action")).toContainText("Start lesson 01");
+  await expect(page.getByTestId("study-data")).toContainText("Running");
+  await expect(page.getByTestId("study-data")).toContainText("Self-reported");
   await page.goto("/path");
   await expect(page.getByTestId("step-task:setup")).toContainText("self-reported");
   await expect(page.getByTestId("step-task:run-study")).toHaveAttribute("data-status", "in_progress");
@@ -159,7 +162,7 @@ test("lesson 09 and the Results page explain the SYNTHETIC results and how to un
   await expect(banner).toContainText("SYNTHETIC");
   await expect(banner.getByRole("link", { name: /Phase 2/ })).toHaveAttribute("href", "/tasks/run-study");
   await expect(banner.getByRole("link", { name: /Phase 5/ })).toHaveAttribute("href", "/tasks/publish");
-  await expect(page.getByTestId("breadcrumb")).toHaveText("Phase 6 · Read your results · step 1 of 2");
+  await expect(page.getByTestId("breadcrumb")).toHaveText("Phase 6 · Read your results · lesson 1 of 1");
   if (await page.getByTestId("prereq-lock").count()) await page.getByTestId("override").click(); // prerequisites: a soft lock
   await expect(page.getByTestId("step")).toBeVisible(); // usable on synthetic data
   await page.goto("/results");

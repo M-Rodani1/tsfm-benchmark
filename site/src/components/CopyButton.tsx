@@ -3,7 +3,7 @@ import { useState } from "react";
 export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
-    <button type="button" className="small" onClick={async () => {
+    <button type="button" className="small" aria-live="polite" onClick={async () => {
       try {
         await navigator.clipboard.writeText(text);
         setDone(true);
@@ -11,6 +11,6 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
       } catch {
         window.prompt("Copy:", text);
       }
-    }}>{done ? "Copied ✓" : label}</button>
+    }}>{done ? "Copied" : label}</button>
   );
 }

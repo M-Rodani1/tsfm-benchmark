@@ -6,6 +6,7 @@ import { InlineMd, Markdown } from "../components/Markdown";
 import { session, store, useStore } from "../lib/app";
 import { content } from "../lib/content";
 import { markDone } from "../lib/journeyState";
+import { Shell } from "../components/Shell";
 
 export function Welcome() {
   useStore();
@@ -18,11 +19,12 @@ export function Welcome() {
     navigate(to);
   };
   return (
-    <section className="card welcome" aria-labelledby="welcome-title" data-testid="welcome" data-screen={i + 1}>
-      <div className="row">
-        <span className="sub">Welcome · {i + 1} of {screens.length}</span>
+    <Shell>
+    <section className="welcome" aria-labelledby="welcome-title" data-testid="welcome" data-screen={i + 1}>
+      <div className="row" style={{ marginBottom: 8 }}>
+        <span className="kicker" style={{ margin: 0 }}>Welcome · {i + 1} of {screens.length}</span>
         <span className="spacer" />
-        <button type="button" className="small" onClick={() => finish(true, "/")} data-testid="welcome-skip">Skip the tour</button>
+        <button type="button" className="linkish" onClick={() => finish(true, "/")} data-testid="welcome-skip">Skip the tour</button>
       </div>
       <h1 id="welcome-title">{s.title}</h1>
       <Markdown text={s.body} />
@@ -31,22 +33,22 @@ export function Welcome() {
           {content.journey.phases.map((p, n) => (
             <li key={p.id}>
               <strong>{n}. {p.title}</strong>{p.kind === "terminal" ? <span className="where"> · on your laptop</span> : null}
-              <span className="sub"> · {p.time}</span>
+              <span className="where"> · {p.time}</span>
               <div className="sub"><InlineMd text={p.goal} /></div>
             </li>
           ))}
         </ol>
       )}
       <div className="stepnav">
-        <button type="button" onClick={() => setI(i - 1)} disabled={i === 0}>← Back</button>
-        <span className="spacer" />
         {i < screens.length - 1 ? (
-          <button type="button" className="primary" onClick={() => setI(i + 1)} data-testid="welcome-next">Next →</button>
+          <button type="button" className="primary" onClick={() => setI(i + 1)} data-testid="welcome-next">Next</button>
         ) : (
-          <button type="button" className="primary" onClick={() => finish(false, "/lessons/00")} data-testid="welcome-start">Start lesson 00 →</button>
+          <button type="button" className="primary" onClick={() => finish(false, "/lessons/00")} data-testid="welcome-start">Start lesson 00</button>
         )}
+        {i > 0 && <button type="button" onClick={() => setI(i - 1)}>Back</button>}
       </div>
-      <p className="sub" style={{ marginBottom: 0 }}>You can open this tour again from <em>Tour</em> in the menu, and see the whole route on <Link to="/path">Your path</Link>.</p>
+      <p className="small-text" style={{ marginTop: 16 }}>You can open this tour again from <em>Tour</em> under Your path on Home, and see the whole route on <Link to="/path">Your path</Link>.</p>
     </section>
+    </Shell>
   );
 }

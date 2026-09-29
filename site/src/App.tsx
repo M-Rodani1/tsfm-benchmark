@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
+import { Loading, Shell } from "./components/Shell";
 import { TooltipProvider } from "./components/Tooltip";
 import { Account } from "./pages/Account";
 import { Home } from "./pages/Home";
@@ -20,7 +21,7 @@ export function App() {
     <BrowserRouter>
       <TooltipProvider>
         <Layout>
-          <Suspense fallback={<p className="muted">Loading…</p>}>
+          <Suspense fallback={<Shell><Loading text="Loading…" /></Shell>}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/welcome" element={<Welcome />} />
@@ -33,7 +34,7 @@ export function App() {
               <Route path="/notes" element={<Notes />} />
               <Route path="/status" element={<Status />} />
               <Route path="/account" element={<Account />} />
-              <Route path="*" element={<p>Page not found. <a href="/">Home</a></p>} />
+              <Route path="*" element={<Shell><div className="content empty"><h1>Page not found</h1><p><a href="/">Back to Home</a></p></div></Shell>} />
             </Routes>
           </Suspense>
         </Layout>

@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { PathRail, pathToggleLabel } from "../components/Journey";
+import { Shell } from "../components/Shell";
+import { useJourney } from "../lib/journeyState";
 import { session, store, useStore } from "../lib/app";
 import { ankiCsv, download } from "../lib/anki";
 import { allFlashcards } from "../lib/content";
@@ -15,6 +18,7 @@ const GRADES: { g: Grade; label: string; key: string }[] = [
 
 export function Review() {
   useStore();
+  const v = useJourney();
   const now = new Date();
   const due = dueCards(store, now);
   const [shown, setShown] = useState(false);
@@ -54,20 +58,21 @@ export function Review() {
   const intervals = current ? preview(current.state, now) : null;
 
   return (
-    <>
+    <Shell rail={<PathRail v={v} />} railToggle={pathToggleLabel(v)}>
+      <div className="content">
       <h1>Review</h1>
-      <p className="sub">
+      <p className="lede">
         Spaced repetition (SM-2): cards you know come back later and later, cards you miss come back tomorrow.
         {" "}{states.length} of {allFlashcards().length} cards are in your queue (a lesson's cards join when you finish it).
       </p>
       {current ? (
-        <section className="card flashcard" data-testid="flashcard">
-          <div className="sub">Lesson {current.card.lessonId} · {due.length} due{reviewed ? ` · ${reviewed} reviewed this session` : ""}</div>
-          <div className="face" data-testid="card-front"><strong>Q:</strong> {current.card.q}</div>
+        <section className="flashcard section" data-testid="flashcard" aria-label="Flashcard">
+          <div className="small-text">Lesson {current.card.lessonId} · {due.length} due{reviewed ? ` · ${reviewed} reviewed this session` : ""}</div>
+          <div className="face" data-testid="card-front"><span className="visually-hidden">Question: </span>{current.card.q}</div>
           {shown ? (
             <>
               <hr />
-              <div className="face" data-testid="card-back"><strong>A:</strong> {current.card.a}</div>
+              <div className="face" data-testid="card-back"><span className="visually-hidden">Answer: </span>{current.card.a}</div>
               <div className="grades" role="group" aria-label="How well did you remember?">
                 {GRADES.map(({ g, label, key }) => (
                   <button key={g} type="button" onClick={() => grade(g)} data-testid={`grade-${g}`}>
@@ -82,16 +87,17 @@ export function Review() {
           )}
         </section>
       ) : (
-        <section className="card" data-testid="nothing-due">
+        <section className="section empty" data-testid="nothing-due">
           <h2>{reviewed ? `Done: ${reviewed} card${reviewed === 1 ? "" : "s"} reviewed.` : "Nothing due today."}</h2>
           <p>{upcoming ? `Next cards are due on ${upcoming}.` : states.length ? "" : "Finish a lesson to add its cards."} <Link to="/">Back to Home</Link></p>
         </section>
       )}
-      <section className="card">
+      <section className="section" style={{ borderTop: "1px solid var(--rule)", paddingTop: 24 }}>
         <h2>Anki (optional)</h2>
         <p className="sub">The same cards as a CSV for Anki (File → Import, Basic, comma-separated). Reviews in Anki are not synced back here.</p>
         <button type="button" onClick={() => download("tsfm-rc-flashcards.csv", ankiCsv(), "text/csv")}>Download Anki CSV</button>
       </section>
-    </>
+      </div>
+    </Shell>
   );
 }

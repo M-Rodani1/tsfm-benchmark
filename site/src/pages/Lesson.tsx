@@ -1,3 +1,6 @@
+// A lesson: its steps in the rail (glyph per step, the current one highlighted), one step at a time
+// in the main column (serif reading text, figures, exercises), and exactly one primary "Next":
+// the next step, or on the last step the next step on your path (nextAction()).
 import { useEffect, useMemo } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Checkpoint } from "../components/Checkpoint";
@@ -6,11 +9,39 @@ import { Breadcrumb, NextStepButton, SyntheticBanner } from "../components/Journ
 import { InlineMd, Markdown } from "../components/Markdown";
 import { Predict } from "../components/Predict";
 import { PyStatus } from "../components/PyStatus";
+import { Glyph, Shell } from "../components/Shell";
 import { store, useStore } from "../lib/app";
 import { content, lessonById } from "../lib/content";
 import { useJourney } from "../lib/journeyState";
-import { getProgress, missingPrerequisites, overridePrerequisites, percentDone, setCurrentStep, stepDone } from "../lib/progress";
+import { getProgress, missingPrerequisites, overridePrerequisites, percentDone, setCurrentStep, stepDone, type LessonProgress } from "../lib/progress";
+import type { Lesson } from "../lib/types";
 import { runner } from "../py/runner";
+
+function StepRail({ lesson, progress, stepIndex, goto }: { lesson: Lesson; progress: LessonProgress; stepIndex: number; goto: (i: number) => void }) {
+  return (
+    <nav aria-label="Steps of this lesson">
+      <Breadcrumb stepKey={`lesson:${lesson.id}`} />
+      <p className="lesson-rail-title">Lesson {lesson.id}: {lesson.title}</p>
+      <ol className="step-list">
+        {lesson.steps.map((s, i) => {
+          const done = stepDone(s, progress);
+          return (
+            <li key={s.id}>
+              <button type="button" onClick={() => goto(i)} aria-current={i === stepIndex ? "step" : undefined} data-done={done}>
+                <Glyph kind={done ? "done" : i === stepIndex ? "current" : "pending"} />
+                <span>{s.title}{done && <span className="visually-hidden"> (done)</span>}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      <ul className="rail-links">
+        <li className="small-text">{percentDone(lesson, progress)}% done · about {lesson.minutes} min in all</li>
+        <li><Link to={`/notes?lesson=${lesson.id}`}>My notes for this lesson</Link></li>
+      </ul>
+    </nav>
+  );
+}
 
 export function LessonPage() {
   useStore();
@@ -37,65 +68,53 @@ export function LessonPage() {
     if (lesson) void runner.openLesson(lesson).catch(() => {});
   }, [lesson]);
 
-  if (!lesson || !progress) return <p>No such lesson. <Link to="/lessons">All lessons</Link></p>;
+  if (!lesson || !progress)
+    return <Shell><div className="content empty"><h1>No such lesson</h1><p><Link to="/lessons">All lessons</Link></p></div></Shell>;
   const step = lesson.steps[stepIndex];
   const missing = missingPrerequisites(store, lesson);
   const locked = missing.length > 0 && !progress.prereq_override && progress.status === "not_started";
   const goto = (i: number) => {
     setParams({ step: lesson.steps[i].id });
     window.scrollTo({ top: 0 });
+    requestAnimationFrame(() => document.getElementById("step-title")?.focus({ preventScroll: true }));
   };
   const isLast = stepIndex === lesson.steps.length - 1;
   const needsReal = content.journey.phases.some((p) => p.requires_real_results && p.steps.some((x) => x.key === `lesson:${lesson.id}`));
+  const hasPython = step.blocks.some((b) => b.kind === "python" || b.kind === "checkpoint");
+  const done = stepDone(step, progress);
 
   return (
-    <div className="lesson-layout">
-      <aside aria-label="Steps of this lesson">
-        <div className="sub">Lesson {lesson.id} · {percentDone(lesson, progress)}% done</div>
-        <ol className="steps">
-          {lesson.steps.map((s, i) => (
-            <li key={s.id}>
-              <button type="button" className={i === stepIndex ? "current" : ""} onClick={() => goto(i)} aria-current={i === stepIndex ? "step" : undefined}>
-                <span className="tick" aria-hidden="true">{stepDone(s, progress) ? "✓" : `${i + 1}.`}</span>{s.title}
-              </button>
-            </li>
-          ))}
-        </ol>
-        <p><Link to={`/notes?lesson=${lesson.id}`}>My notes for this lesson</Link></p>
-      </aside>
-      <div>
-        <div className="lesson-head">
-          <Breadcrumb stepKey={`lesson:${lesson.id}`} />
-          <div className="meta">Lesson {lesson.id} · ⏱ {lesson.minutes} min{lesson.codeToRead.length ? <> · code you will read: {lesson.codeToRead.map((c) => <code key={c} style={{ marginRight: 4 }}>{c}</code>)}</> : null}</div>
-          <h1>{lesson.title}</h1>
-          {stepIndex === 0 && (
-            <div className="card" data-testid="lesson-intro">
-              <strong>You'll be able to…</strong>
-              <ol>{lesson.objectives.map((o, i) => <li key={i}><InlineMd text={o} /></li>)}</ol>
-              <div><strong>You need:</strong> <InlineMd text={lesson.youNeed} /></div>
-            </div>
-          )}
-          {lesson.browserNote && stepIndex === 0 && <div className="callout"><strong>In the browser:</strong> <InlineMd text={lesson.browserNote} /></div>}
-          {needsReal && <SyntheticBanner what="this lesson" />}
-        </div>
+    <Shell rail={<StepRail lesson={lesson} progress={progress} stepIndex={stepIndex} goto={goto} />}
+      railToggle={`Lesson ${lesson.id}: step ${stepIndex + 1} of ${lesson.steps.length}`}>
+      <div className="content">
+        {needsReal && <SyntheticBanner what="this lesson" />}
         {locked ? (
-          <section className="card" data-testid="prereq-lock">
-            <h2>🔒 This lesson builds on lesson{missing.length > 1 ? "s" : ""} {missing.join(", ")}</h2>
-            <p>They are not finished yet. You can go back, or start anyway if you already know the material.</p>
-            <div className="row">
-              <Link className="btn" to={`/lessons/${missing[0]}`}>Go to lesson {missing[0]}</Link>
+          <section data-testid="prereq-lock" aria-labelledby="lock-title">
+            <p className="kicker">Lesson {lesson.id}: {lesson.title}</p>
+            <h1 id="lock-title">This lesson builds on lesson{missing.length > 1 ? "s" : ""} {missing.join(", ")}</h1>
+            <p className="lede">They are not finished yet. You can go back, or start anyway if you already know the material.</p>
+            <div className="action-row">
+              <Link className="btn primary" to={`/lessons/${missing[0]}`}>Go to lesson {missing[0]}</Link>
               <button type="button" onClick={() => overridePrerequisites(store, lesson)} data-testid="override">Start anyway</button>
             </div>
           </section>
         ) : (
           // keyed by lesson and step: moving to another lesson never carries over a cell's state
-          <section key={`${lesson.id}/${step.id}`} className="step" aria-labelledby="step-title" data-testid="step" data-step={step.id}>
-            <div className="row">
-              <span className="sub">Step {stepIndex + 1} of {lesson.steps.length}</span>
-              <span className="spacer" />
-              <PyStatus />
+          <article key={`${lesson.id}/${step.id}`} className="step" aria-labelledby="step-title" data-testid="step" data-step={step.id}>
+            <div className="step-kicker">
+              <span>Step {stepIndex + 1} of {lesson.steps.length}</span>
+              {hasPython && <PyStatus />}
             </div>
-            <h2 id="step-title">{step.title}</h2>
+            <h1 id="step-title" tabIndex={-1}>{step.title}</h1>
+            {stepIndex === 0 && (
+              <section className="intro" data-testid="lesson-intro" aria-label="About this lesson">
+                <h2>You'll be able to</h2>
+                <ol>{lesson.objectives.map((o, i) => <li key={i}><InlineMd text={o} /></li>)}</ol>
+                <p><strong>You need:</strong> <InlineMd text={lesson.youNeed} /> · About {lesson.minutes} min
+                  {lesson.codeToRead.length ? <> · Code you will read: {lesson.codeToRead.map((c, i) => <span key={c}>{i ? ", " : ""}<code>{c}</code></span>)}</> : null}</p>
+              </section>
+            )}
+            {lesson.browserNote && stepIndex === 0 && <p className="callout"><strong>In the browser:</strong> <InlineMd text={lesson.browserNote} /></p>}
             {step.blocks.map((b, i) => {
               if (b.kind === "md") return <Markdown key={i} text={b.text} />;
               if (b.kind === "predict") return <Predict key={b.id} lesson={lesson} block={b} />;
@@ -103,20 +122,23 @@ export function LessonPage() {
               return <Checkpoint key={b.id} lesson={lesson} />;
             })}
             <div className="stepnav">
-              <button type="button" onClick={() => goto(stepIndex - 1)} disabled={stepIndex === 0}>← Back</button>
-              <span className="spacer" />
-              {stepDone(step, progress) ? <span className="verdict-ok">✓ step done</span> : <span className="muted">Do the activity above to complete this step</span>}
-              {!isLast && <button type="button" className="primary" onClick={() => goto(stepIndex + 1)} data-testid="next-step">Next →</button>}
+              {!isLast && (
+                <button type="button" className="primary" onClick={() => goto(stepIndex + 1)} data-testid="next-step" data-next-target>
+                  Next: {lesson.steps[stepIndex + 1].title}
+                </button>
+              )}
+              {stepIndex > 0 && <button type="button" onClick={() => goto(stepIndex - 1)}>Back</button>}
+              <span className="state">{done ? <span className="verdict-ok">✓ Step done</span> : "Do the activity above to complete this step."}</span>
             </div>
             {isLast && progress.status === "completed" && (
-              <p className="verdict-ok" data-testid="lesson-complete">
+              <p className="lesson-complete verdict-ok" data-testid="lesson-complete">
                 Lesson complete. Its {lesson.flashcards.length} flashcards are in your <Link to="/review">review queue</Link>.
               </p>
             )}
-            {isLast && <NextStepButton next={journey.next} here={`lesson:${lesson.id}`} />}
-          </section>
+            {isLast && <div data-next-target><NextStepButton next={journey.next} here={`lesson:${lesson.id}`} /></div>}
+          </article>
         )}
       </div>
-    </div>
+    </Shell>
   );
 }

@@ -1,10 +1,6 @@
-// Shared by the Results charts: the same colour mapping and number formats as the offline
-// dashboard (reports/dashboard), so both views read identically. Colour follows the model.
-export const SLOT: Record<string, number> = {
-  chronos_bolt_tiny: 1, timesfm_2p5_200m: 2, moirai_1p1_small: 3, lgbm: 4, ar_bic: 5, garch: 5,
-  hist_mean: 6, ewma: 6, seasonal_naive: 6, gjr_garch: 7, oracle: 8,
-};
-export const colorOf = (m: string) => `var(--s${SLOT[m] ?? 8})`;
+// Shared by the Results charts: number formats and the diverging bins of the offline dashboard
+// (reports/dashboard), so both views read identically. Line colours follow the data semantics of
+// site/DESIGN.md (the selected model blue and dashed, others grey and dashed, reference graphite).
 export const fmt = (x: number | null | undefined, d = 3) => (x === null || x === undefined || !Number.isFinite(x) ? "–" : Number(x).toFixed(d));
 export const fmtp = (p: number | null | undefined) =>
   p === null || p === undefined || !Number.isFinite(p) ? "–" : p < 0.001 ? "<0.001" : Number(p).toFixed(3);

@@ -11,8 +11,9 @@ test("home shows the next step, due cards and the pending terminal task", async 
   await page.goto("/");
   await expect(page).toHaveURL(/\/welcome$/); // first visit: the tour (tests/journey.spec.ts goes through it)
   await page.getByTestId("welcome-skip").click();
-  await expect(page.getByTestId("next-action")).toContainText("Lesson 00");
+  await expect(page.getByTestId("next-action")).toContainText("Start lesson 00");
   await expect(page.getByTestId("due-card")).toContainText("0");
+  await expect(page.getByTestId("local-only-banner")).toBeVisible(); // Home says where progress lives
   // the terminal work is on Home's path summary, the Research status page and its task pages
   await expect(page.getByTestId("path-summary")).toContainText("Launch the real study");
   await expect(page.getByTestId("path-summary")).toContainText("Publish the real results");
@@ -23,6 +24,7 @@ test("home shows the next step, due cards and the pending terminal task", async 
   await expect(page.getByTestId("task-page")).toContainText("make reproduce");
   await page.goto("/tasks/publish");
   await expect(page.getByTestId("task-page")).toContainText("make publish-results");
+  await page.goto("/account");
   await expect(page.getByTestId("local-only-banner")).toBeVisible();
 });
 
@@ -31,15 +33,16 @@ test("complete a lesson step, then reload: progress and position persist", async
   await page.goto("/lessons/00");
   const step = page.getByTestId("step");
   await expect(step).toHaveAttribute("data-step", "what-runs-where");
-  await step.getByTestId("predict").getByRole("button", { name: /own computer/ }).click();
+  await step.getByTestId("predict").getByRole("radio", { name: /own computer/ }).check();
+  await step.getByTestId("predict-check").click();
   await expect(step.getByTestId("predict-feedback")).toContainText("Right");
-  await expect(step).toContainText("step done");
+  await expect(step).toContainText("Step done");
   await page.getByTestId("next-step").click();
   await expect(page.getByTestId("step")).toHaveAttribute("data-step", "is-the-data-what-it-should-be");
 
   await page.reload();
   await expect(page.getByTestId("step")).toHaveAttribute("data-step", "is-the-data-what-it-should-be");
-  await page.getByRole("button", { name: /What runs where/ }).click();
+  await page.getByRole("navigation", { name: "Steps of this lesson" }).getByRole("button", { name: /What runs where/ }).click();
   await expect(page.getByTestId("predict-feedback")).toContainText("Right");
   await page.goto("/");
   await expect(page.getByTestId("next-action")).toContainText("Continue lesson 00");
@@ -62,7 +65,9 @@ test("code is autosaved as you type and survives closing the tab", async ({ page
 
 test("export then import progress restores everything", async ({ page }) => {
   await page.goto("/lessons/00");
-  await page.getByTestId("predict").getByRole("button", { name: /own computer/ }).click();
+  await page.getByTestId("predict").getByRole("radio", { name: /own computer/ }).check();
+  await page.getByTestId("predict-check").click();
+  await expect(page.getByTestId("predict-feedback")).toBeVisible();
   await page.goto("/notes?lesson=00");
   await page.getByTestId("notes").fill("Pyodide = Python compiled to WebAssembly");
   await page.waitForTimeout(800);
@@ -98,7 +103,7 @@ test("review due flashcards with the scheduler", async ({ page }) => {
   }));
   await page.goto("/");
   await expect(page.getByTestId("due-card")).toContainText("3");
-  await page.getByRole("link", { name: /Review now/ }).click();
+  await page.getByRole("link", { name: /Review, about/ }).click();
   for (let i = 0; i < 3; i++) {
     await expect(page.getByTestId("card-front")).toBeVisible();
     await page.getByTestId("show-answer").click();

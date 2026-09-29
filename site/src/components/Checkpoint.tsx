@@ -65,20 +65,20 @@ export function Checkpoint({ lesson }: { lesson: Lesson }) {
     <div className="cell activity" data-testid="checkpoint">
       <div className="cell-toolbar">
         <button className="primary small" type="button" onClick={check} disabled={busy} data-testid="check">
-          {busy ? "Checking…" : "✓ Check my answer"}
+          {busy ? "Checking…" : "Check my answer"}
         </button>
         {draft.code !== ex.starter && <button className="small" type="button" onClick={draft.reset}>Reset to starter</button>}
-        <span className="label">Checkpoint · write <code>{ex.function}</code> · autosaved{passedBefore ? " · ✅ passed before" : ""}</span>
+        <span className="label">Checkpoint · write <code>{ex.function}</code> · autosaved{passedBefore ? " · passed before" : ""}</span>
       </div>
       <CodeEditor value={draft.code} onChange={draft.update} onRun={check} label="Checkpoint exercise" rows={Math.max(6, draft.code.split("\n").length + 2)} />
       {out && (
         <>
           <Output out={{ ...out, error: out.passed ? undefined : out.error }} lesson={lesson} />
-          {out.passed && <div className="pass-box" data-testid="pass">✅ Passed. This lesson's flashcards join your review queue once every step is done.</div>}
+          {out.passed && <div className="pass-box" data-testid="pass">✓ Passed. This lesson's flashcards join your review queue once every step is done.</div>}
           {!out.passed && !out.error && out.text && <div className="error-box">The checker did not confirm the answer.</div>}
         </>
       )}
-      <div className="hints" style={{ padding: "8px 12px" }}>
+      <div className="hints">
         {hints > 0 && (
           <ol data-testid="hints">
             {ex.hints.slice(0, hints).map((h, i) => <li key={i}><InlineMd text={h} /></li>)}

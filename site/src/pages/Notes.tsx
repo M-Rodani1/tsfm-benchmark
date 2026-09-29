@@ -3,6 +3,10 @@ import { useSearchParams } from "react-router-dom";
 import { store, useStore } from "../lib/app";
 import { lessons } from "../lib/content";
 import type { SessionRec } from "../lib/session";
+import { PathRail, pathToggleLabel } from "../components/Journey";
+import { Shell } from "../components/Shell";
+import { fmtDuration } from "../lib/format";
+import { useJourney } from "../lib/journeyState";
 
 function NoteEditor({ lessonId }: { lessonId: string }) {
   const [text, setText] = useState(() => store.get<{ body: string }>("notes", lessonId)?.data.body ?? "");
@@ -31,23 +35,20 @@ function NoteEditor({ lessonId }: { lessonId: string }) {
   );
 }
 
-function fmtDuration(s: number) {
-  const m = Math.round(s / 60);
-  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
-}
-
 export function Notes() {
   useStore();
+  const v = useJourney();
   const [params, setParams] = useSearchParams();
   const lessonId = params.get("lesson") ?? lessons[0].id;
   const sessions = store.all<SessionRec>("session_log").sort((a, b) => (a.data.started_at < b.data.started_at ? 1 : -1));
   const total = sessions.reduce((n, s) => n + s.data.active_seconds, 0);
   return (
-    <>
-      <h1>Notes &amp; log</h1>
-      <section className="card">
-        <div className="row">
-          <h2 style={{ margin: 0 }}>My notes</h2>
+    <Shell rail={<PathRail v={v} />} railToggle={pathToggleLabel(v)}>
+      <div className="content">
+      <h1>Notes</h1>
+      <section className="section" aria-labelledby="my-notes">
+        <div className="section-head" style={{ alignItems: "end", marginBottom: 12 }}>
+          <h2 id="my-notes">My notes</h2>
           <label className="field">Lesson
             <select value={lessonId} onChange={(e) => setParams({ lesson: e.target.value })} data-testid="notes-lesson">
               {lessons.map((l) => <option key={l.id} value={l.id}>{l.id} · {l.title}</option>)}
@@ -56,23 +57,23 @@ export function Notes() {
         </div>
         <NoteEditor key={lessonId} lessonId={lessonId} />
       </section>
-      <section className="card" data-testid="session-log">
-        <h2>Session history</h2>
+      <section className="section" data-testid="session-log" aria-labelledby="history">
+        <h2 id="history">Session history</h2>
         <p className="sub">Recorded automatically: active time (tab visible, some input in the last 5 minutes) and what you completed. Total: {fmtDuration(total)}.</p>
-        {sessions.length === 0 ? <p className="muted">No sessions yet.</p> : (
+        {sessions.length === 0 ? <p className="empty">No sessions yet. They are recorded as you work through lessons.</p> : (
           <div className="tablewrap">
-            <table>
-              <thead><tr><th>Date</th><th>Time</th><th>Active</th><th>Completed</th></tr></thead>
+            <table className="stack">
+              <thead><tr><th scope="col">Date</th><th scope="col">Time</th><th scope="col">Active</th><th scope="col">Completed</th></tr></thead>
               <tbody>
                 {sessions.map((s) => {
                   const d = new Date(s.data.started_at);
                   const done = (s.data.events ?? []).filter((e) => ["step_completed", "lesson_completed", "exercise_passed", "cards_reviewed"].includes(e.type));
                   return (
                     <tr key={s.id}>
-                      <td>{d.toLocaleDateString()}</td>
-                      <td>{d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
-                      <td>{fmtDuration(s.data.active_seconds)}</td>
-                      <td>{done.length ? done.map((e) => `${e.type.replace("_", " ")}: ${e.detail}`).join("; ") : "–"}</td>
+                      <td data-label="Date">{d.toLocaleDateString()}</td>
+                      <td data-label="Time">{d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                      <td data-label="Active">{fmtDuration(s.data.active_seconds)}</td>
+                      <td data-label="Completed">{done.length ? done.map((e) => `${e.type.replace("_", " ")}: ${e.detail}`).join("; ") : "–"}</td>
                     </tr>
                   );
                 })}
@@ -81,6 +82,7 @@ export function Notes() {
           </div>
         )}
       </section>
-    </>
+      </div>
+    </Shell>
   );
 }
