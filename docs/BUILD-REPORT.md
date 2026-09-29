@@ -24,6 +24,12 @@ answered**; running `make reproduce` on a normal internet connection is the next
 - *Small statistical corrections.*
 - *A fix that makes the committed artifacts reproducible bit for bit* on x86-64 machines.
 
+**Guided journey (§11)** added a route through the whole project to the site:
+- a first-visit tour;
+- one "Do this next" card;
+- a "Your path" roadmap;
+- a page per terminal step, with checks of pasted terminal output.
+
 ## 1. What was built, build by build
 
 | Build | Commit | Contents |
@@ -434,8 +440,107 @@ hashes change because provenance changed (commit, the kernel field).
    - At your DNS provider, create `CNAME <subdomain> → <site>.netlify.app` and no A record.
    - Once DNS verifies, provision the certificate.
    - Set the same address as the Supabase Site URL.
-5. **Optional.** On GitHub, make `main` the default branch (Settings → General). The
-   default branch is still the build branch `claude/dreamy-albattani-nysd72`.
+5. **Done.** `main` is the default branch on GitHub; the owner changed it after Audit-01.
 6. **After the real study.** Run `make reproduce`, then `make publish-results`, then commit
-   and push `site/public/data/results`. Netlify rebuilds, and the Home page's terminal task
-   disappears.
+   and push `site/public/data/results`. Netlify rebuilds, and phases 1, 2 and 5 of *Your
+   path* complete by themselves (§11).
+
+## 11. Guided journey (site fix)
+
+Written 2026-09-29, after the "Guided journey" prompt. The problem: the site had lessons, a
+Home "continue" card and a terminal-task card, but a first-time visitor could not tell the
+overall route, the order, how terminal work fits alongside the lessons, or what "done" means.
+
+### 11.1 Commits
+
+| Part | Commit | What |
+|---|---|---|
+| 1/4 | `5dcaee4` | `journey.yaml` and the four terminal tasks, build-time validation, `journey.ts` (statuses, `nextAction()`), pasted-output checks tested on real captured output, table `journey_state` with RLS, doctor fix catalog |
+| 2/4 | `23a64cb` | Tour, Home "Do this next", "Your path", terminal task pages, breadcrumbs, one "Next step" button, SYNTHETIC banners, browser tests |
+| 3/4 | `51ba7d0` | Lesson 00 "How to use this site", migration upgrade tests, `site/README.md`, `docs/DEPLOY.md`, DECISIONS D-055 to D-058 |
+| 4/4 | the commit adding this section | DEFINITION-OF-DONE rows 17–21, this section |
+
+### 11.2 The route
+
+Eight phases, defined in `site/content/journey.yaml`:
+
+| Phase | Where | Steps |
+|---|---|---|
+| P0 Start here | browser | tour, lesson 00 |
+| P1 Set up your laptop | laptop | clone, uv, Python 3.11, `make install-all`, `make doctor ONLINE=1` |
+| P2 Launch the real study | laptop | `make fetch-data`, `make reproduce` ("Start this now and keep learning while it runs.") |
+| P3 Foundations | browser | lessons 01–04 |
+| P4 Models and statistics | browser | lessons 05–08 (optional: review flashcards) |
+| P5 Publish the real results | laptop | `make publish-results`, commit, push |
+| P6 Read your results | browser | lesson 09, the Results page |
+| P7 Write it up | browser + laptop | lesson 10, `make test` and send for audit |
+
+After lesson 00 the site recommends P1 and P2 at once. P3–P4 run in parallel with P2, and
+P6–P7 need real results. Lessons are never hard-locked.
+
+### 11.3 How each terminal step is detected as done
+
+| Step | Automatic | From pasted output (success) | Otherwise |
+|---|---|---|---|
+| P1 set up | a real `default` run is published | `make doctor ONLINE=1`: ran to the end, no ✗, no ! except real-data cache, results, lessons or uv | “I've done this” (shown as self-reported) |
+| P2 run the study | same | `make reproduce`: `[evaluate]`, `[report] …/reports/default/…`, `[dashboard]`; another config is rejected by name; UNAVAILABLE models are flagged | same; a start button (or output showing the run started) marks it running |
+| P5 publish | same (the only completion) | `make publish-results` with a `(real data)` `default` run: progress only, “now commit and push” | same |
+| P7 audit | — | `make test`: the summary line, some tests passed and none failed | same |
+
+Real results means a published non-synthetic run named `default`. `publish.py` labels every
+run synthetic unless its data came from Yahoo Finance or CSV (D-055).
+
+### 11.4 What was verified, and how
+
+- **Unit tests** (`site/tests/`, 79 in all; 45 before this fix):
+  - `nextAction()` and the statuses in eight situations, from a fresh user to all done;
+  - breadcrumbs;
+  - YAML validation, including the bug below;
+  - the output checks on real captured output;
+  - RLS for `journey_state`: policies and grants equal the other tables', a re-run of the
+    migration, and the upgrade from the pre-journey schema.
+- **Browser tests** (`site/e2e/journey.spec.ts`, 4 tests, in CI and locally): the tour to
+  lesson 00; finishing lesson 00 making Phase 1 next; a real failed doctor output rejected
+  with its fixes and a real success output completing Phase 1; reloads keep everything; the
+  study running; self-report and reset; OS tabs; SYNTHETIC banners.
+  - The 8 existing app flows were updated to the new Home with the same assertions.
+  - The 12 real-Pyodide lesson tests still pass in CI with the new lesson page.
+- **Python:** `tests/test_doctor_flashcards.py` keeps the doctor's fix catalog in sync and
+  fails if the CLI's wording drifts from the site's parser. 304 tests pass.
+- **Captured output** (`site/tests/fixtures/cli/`): every file is real output of the command
+  named in its README, run on 2026-09-29, with two exceptions:
+  - the Phase 1 success case ran the real doctor against a staged model-weights cache,
+    because Hugging Face is blocked here;
+  - the tests derive the real study and a real publish from real captures by changing only
+    the run name or label.
+- **A manual browser pass** with screenshots found one defect the tests had missed: an
+  unquoted YAML item (`Windows: …`) became a mapping and crashed the Phase 1 page. It was
+  fixed, and the validator now rejects non-string text (a test covers it).
+
+### 11.5 Known weaknesses
+
+- **The laptop instructions have not been followed end to end on a real laptop.**
+  - *Run for real here:* `df`, `make doctor` (both modes), `make fetch-data`,
+    `make reproduce`, `make reproduce-fixtures`, `make publish-results`, `make test` and
+    `uv python install 3.11` ran in the build container (Linux).
+  - *Written from the tools' documentation, not run:* the macOS and Windows commands
+    (`xcode-select`, Homebrew, `wsl --install`, `powercfg`, `caffeinate`), `gh` for a private
+    repository, `systemd-inhibit` and the uv installer.
+- **The real study's duration is unmeasured.** "Several hours" is an estimate (§2).
+- **The site cannot see the laptop.** "Study running" is the learner's own click (or pasted
+  output showing it started). Phases 2 and 5 complete automatically only after a push has
+  made Netlify rebuild.
+- **Self-reported steps carry no evidence.** They are labelled as self-reported everywhere
+  and can be reset.
+- **Brief deviation: a sixth status.** The brief lists five statuses. *upcoming* was added
+  because calling an available step "locked" would be false (D-055).
+- **Conflict handling.** Journey state has the same last-write-wins limitations as the rest
+  of the progress (D-047).
+
+### 11.6 What you need to do
+
+- **If Supabase is already set up**, run
+  `site/supabase/migrations/20260928120000_progress_schema.sql` again in the SQL Editor. It
+  adds `journey_state` with the same protection and keeps your data (tested).
+- Otherwise nothing: Netlify rebuilds from `main` on the next push.
+
