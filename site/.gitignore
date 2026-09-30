@@ -1,0 +1,13 @@
+node_modules/
+dist/
+src/generated/
+public/pyodide/
+public/py/
+public/data/fixtures/
+public/data/configs/
+public/data/lessons/
+test-results/
+playwright-report/
+.env
+.env.local
+dist-simulated/

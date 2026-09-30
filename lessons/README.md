@@ -2,6 +2,11 @@
 
 Eleven sessions of 45–90 minutes. Each one teaches the *actual code* of this repository.
 
+**The main way to take them is the website** (`site/`, see `docs/DEPLOY.md`): short steps,
+Python in the browser, hints, saved progress and spaced-repetition review. The notebooks in
+this folder are the offline alternative, generated from the same source
+(`site/content/lessons/`).
+
 | # | Lesson | Time | Builds on the code in |
 |---|---|---|---|
 | 00 | [Orientation](00-orientation/) | 45 min | configs, `make doctor`, `make smoke` |
@@ -29,5 +34,8 @@ Eleven sessions of 45–90 minutes. Each one teaches the *actual code* of this r
    `flashcards.csv` for Anki (File → Import, Basic, comma-separated).
 7. **Tick it off** in [`PROGRESS.md`](PROGRESS.md) and write one line you'd forget.
 
-For maintainers: the notebooks are built from `lesson.py` by `make lessons`; CI executes
-every notebook with its solution and checks that its checker rejects the unsolved stub.
+For maintainers: everything in `lessons/NN-…/` is **generated** from
+`site/content/lessons/NN-…/` by `make lessons` (see `site/content/README.md`); edit the
+source, never these files. CI checks the generated files are current, runs every lesson in a
+browser-like sandbox and in a real browser, executes every notebook with its solution, and
+checks that each checker rejects the unsolved starter.

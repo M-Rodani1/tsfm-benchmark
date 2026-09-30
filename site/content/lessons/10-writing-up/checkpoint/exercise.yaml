@@ -1,0 +1,5 @@
+function: my_sentence
+hints:
+  - "Start with the verdict: `reject_holm` decides whether there is a finding, the sign of `mean_diff` its direction."
+  - "The rest is one f-string: model, reference, target, horizon, then `ci(r.rel_loss, r.rel_loss_lo, r.rel_loss_hi)` and `fp(r.p_holm)`."
+  - "Copy the pattern of `sentence` character by character, including `: ` before the verdict and the final full stop."

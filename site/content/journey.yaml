@@ -1,0 +1,143 @@
+# The guided journey through the whole project: the single source for the site's
+# "Do this next" card, the "Your path" page, breadcrumbs and "Next step" buttons.
+# Validated at build time (site/scripts/journey.mjs); the order and the ordering rules below
+# are implemented in site/src/lib/journey.ts and tested in site/tests/journey.test.ts.
+#
+# A phase:   id, title, goal (one sentence), why (1-2 sentences), time, steps, done.
+#            optional: kind: terminal (runs on your laptop), note (shown prominently),
+#            requires: [phase ids] (a hard dependency: the phase is "locked" until they are
+#            done), requires_real_results: true (locked until a real run of the study is
+#            published), parallel_with: [phase ids] (information: may run at the same time).
+# Ordering rule (site/src/lib/journey.ts, nextAction): after lesson 00 the site recommends P1
+# and P2 at once, because P2 then runs unattended while P3-P4 proceed in parallel. Lessons are
+# never hard-locked: a locked lesson step is still open, with a banner.
+# A step:    exactly one of
+#              lesson: "NN"                  a lesson (site/content/lessons/NN-*)
+#              task: <id>                    a terminal task (site/content/tasks/<id>.yaml)
+#              site: welcome|results|review  something done on this site
+#            optional: title (site steps), optional: true (not needed to finish the phase).
+
+# The first-visit tour: exactly three short screens (the route at a glance is added from the
+# phases below). Re-openable from the navigation.
+welcome:
+  - title: The question
+    body: >-
+      Do time-series foundation models (large models pre-trained on huge collections of
+      series, such as Chronos, TimesFM and Moirai) forecast stock returns, volatility and
+      trading volume better than simple, decades-old baselines when they are tested honestly?
+      Honestly means a design fixed in advance, no look-ahead, statistics that allow for many
+      comparisons, and a check that the models have not already seen the test period. This
+      project builds that test, and you will run it.
+  - title: How this site works
+    body: >-
+      Your browser runs the lessons: Python works inside this tab, with nothing to install, and
+      your progress is saved as you go. Your laptop runs the study: downloading market data
+      and running the foundation models is far too heavy for a browser. For every terminal
+      step this site gives you the commands, says what you should see, and checks the output
+      you paste back.
+  - title: The route
+    body: >-
+      Eight phases. After lesson 00 you set up your laptop and start the real study, which runs
+      for hours on its own while you work through the lessons. Then you publish your results,
+      read them critically and write them up. At the end you have a published, reproducible
+      study and a short paper about it, ready for an independent audit.
+
+phases:
+  - id: P0
+    title: Start here
+    goal: Understand the question this project answers and how this site works.
+    why: Everything else builds on this. Lesson 00 also shows you the pre-registered design you will run later.
+    time: about 50 min
+    steps:
+      - site: welcome
+        title: Take the 1-minute tour
+      - lesson: "00"
+    done: The tour is finished (or skipped) and lesson 00 is complete.
+
+  - id: P1
+    title: Set up your laptop
+    kind: terminal
+    goal: Get the code, Python 3.11 and every package onto your laptop, and check them with the doctor.
+    why: The foundation models and the full benchmark are far too heavy for a browser; they run on your laptop.
+    time: 30–60 min, mostly downloads (about 7 GB)
+    steps:
+      - task: setup
+    done: "`make doctor ONLINE=1` reports no ✗ and all three model weights are available."
+
+  - id: P2
+    title: Launch the real study
+    kind: terminal
+    goal: Download the market data and start the pre-registered study, which then runs on its own.
+    why: It takes hours but needs no attention, so starting it early means your real results are ready by the time you have learned how to read them.
+    note: Start this now and keep learning while it runs.
+    time: about 15 min of your time, then several hours unattended
+    requires: [P1]
+    parallel_with: [P3, P4]
+    steps:
+      - task: run-study
+    done: "`make reproduce` finished with the report and dashboard of the `default` run."
+
+  - id: P3
+    title: Foundations
+    goal: Learn the data, the targets, look-ahead bias and the classical baselines.
+    why: You cannot judge a foundation model without knowing what it has to beat and how a fair test is set up.
+    time: about 4 h 30 min (four lessons)
+    parallel_with: [P2]
+    steps:
+      - lesson: "01"
+      - lesson: "02"
+      - lesson: "03"
+      - lesson: "04"
+    done: Lessons 01–04 are complete.
+
+  - id: P4
+    title: Models and statistics
+    goal: Learn how the foundation models forecast and how the study decides whether a difference is real.
+    why: These are the tools you need to read your own results honestly, including why most apparent wins are noise.
+    time: about 4 h 30 min (four lessons)
+    parallel_with: [P2]
+    steps:
+      - lesson: "05"
+      - lesson: "06"
+      - lesson: "07"
+      - lesson: "08"
+      - site: review
+        title: Review your due flashcards
+        optional: true
+    done: Lessons 05–08 are complete.
+
+  - id: P5
+    title: Publish the real results
+    kind: terminal
+    goal: Export the stored results of the real study and push them, so this site shows them.
+    why: The site never computes statistics; it only shows what your laptop exported, with its provenance.
+    time: about 10 min
+    requires: [P2]
+    steps:
+      - task: publish
+    done: The Results page shows a published run of the real study (data from Yahoo Finance, not synthetic).
+
+  - id: P6
+    title: Read your results
+    goal: Read the primary tests, the contamination test and the synthetic control of your own run, critically.
+    why: This is the answer to the research question, and the place where over-reading is easiest.
+    time: about 1 h 30 min
+    requires: [P5]
+    requires_real_results: true
+    steps:
+      - lesson: "09"
+      - site: results
+        title: Open the Results page of your real run
+    done: Lesson 09 is complete and you have opened the Results page with real results.
+
+  - id: P7
+    title: Write it up
+    goal: Write the short paper and hand the repository to an auditor.
+    why: A result nobody can check is not a result; the audit is what makes it credible.
+    time: about 2 h
+    requires: [P6]
+    requires_real_results: true
+    steps:
+      - lesson: "10"
+      - task: audit
+    done: Lesson 10 is complete, the full test suite passes on your laptop, and the repository is sent for audit.

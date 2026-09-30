@@ -1,0 +1,65 @@
+{
+ "generated_by": "tsfm_rc.pipeline.publish.study_facts (make publish-results)",
+ "config": "configs/default.yaml",
+ "config_hash": "631d122284527dbc",
+ "run": "default",
+ "data": {
+  "provider": "yfinance",
+  "tickers": 26,
+  "start": "2000-01-03",
+  "end": "2026-09-25"
+ },
+ "targets": [
+  "returns",
+  "rv",
+  "volume"
+ ],
+ "horizons": [
+  1,
+  5,
+  20
+ ],
+ "baselines": [
+  "ar_bic",
+  "ewma",
+  "garch",
+  "gjr_garch",
+  "har",
+  "hist_mean",
+  "lgbm",
+  "seasonal_naive",
+  "zero"
+ ],
+ "primary_tests": 27,
+ "buffer_days": 30,
+ "weights_dates_from": null,
+ "models": [
+  {
+   "name": "chronos_bolt_tiny",
+   "label": "Chronos-Bolt tiny",
+   "hf_id": "amazon/chronos-bolt-tiny",
+   "release_date": "2024-11-26",
+   "weights_date": null,
+   "effective_release": "2024-11-26",
+   "clean_start": "2024-12-26"
+  },
+  {
+   "name": "timesfm_2p5_200m",
+   "label": "TimesFM 2.5 (200M)",
+   "hf_id": "google/timesfm-2.5-200m-pytorch",
+   "release_date": "2025-09-15",
+   "weights_date": null,
+   "effective_release": "2025-09-15",
+   "clean_start": "2025-10-15"
+  },
+  {
+   "name": "moirai_1p1_small",
+   "label": "Moirai 1.1 small",
+   "hf_id": "Salesforce/moirai-1.1-R-small",
+   "release_date": "2024-06-30",
+   "weights_date": null,
+   "effective_release": "2024-06-30",
+   "clean_start": "2024-07-30"
+  }
+ ]
+}

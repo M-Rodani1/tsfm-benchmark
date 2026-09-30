@@ -1,0 +1,16 @@
+- q: What does "zero-shot" mean for a time-series foundation model?
+  a: The pretrained model forecasts our series without any training or fine-tuning on it; we only give it a context.
+- q: What is the context length in this study?
+  a: 512 past trading days for every TSFM (Moirai additionally uses 20 more for its own patch-size choice).
+- q: Why do TSFMs scale the context before using it?
+  a: So one network can read series of any level/unit; it then sees shapes, not magnitudes.
+- q: What is a patch in Chronos-Bolt or TimesFM?
+  a: A block of consecutive values (e.g. 16 or 32) treated like one token/word.
+- q: Why is exp(median of log variance) a biased variance forecast?
+  a: It is the median of the variance, which is below the mean for a right-skewed (lognormal) distribution.
+- q: How does the study convert log-variance quantiles to a variance forecast?
+  a: exp(m + s^2/2) with m = median and s = (q90 − q10)/2.5631, per step, then averaged over h.
+- q: What happens if a model's weights cannot be downloaded?
+  a: It is marked UNAVAILABLE everywhere with the reason; no numbers are shown or invented for it.
+- q: Name the three TSFMs and their release dates used in the study.
+  a: Chronos-Bolt tiny (2024-11-26), TimesFM 2.5 200M (2025-09-15), Moirai 1.1-R small (June 2024, 2024-06-30 used).

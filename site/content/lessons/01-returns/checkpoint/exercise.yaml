@@ -1,0 +1,5 @@
+function: my_h_step_return
+hints:
+  - "An h-day log return is the log of a price ratio: which two prices?"
+  - "The price at the origin row `i`, and the price h rows later, `prices[i + h]`."
+  - "Returns are in percent: multiply the log ratio by 100."

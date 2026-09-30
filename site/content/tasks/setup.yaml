@@ -1,0 +1,109 @@
+# Phase 1 — a terminal task (format: site/content/README.md, "Terminal tasks").
+id: setup
+title: Set up your laptop
+why: The foundation models and the full benchmark are far too heavy for a browser. Your laptop runs them; this site shows what it produced.
+time: 30–60 min, mostly downloads (about 7 GB)
+before:
+  - About **10 GB of free disk space** (PyTorch alone is about 6 GB).
+  - A laptop you can leave plugged in. Nothing here needs a GPU.
+  - "Windows: everything runs inside **WSL** (Ubuntu), a Linux system built into Windows. The first command installs it."
+commands:
+  - title: Install WSL (Windows only)
+    os: [windows]
+    run: wsl --install -d Ubuntu
+    where: PowerShell, opened with “Run as administrator”
+    expect: Windows installs Ubuntu and asks you to restart. After the restart, open **Ubuntu** from the Start menu and choose a user name and password. Every later command runs in that Ubuntu window.
+    time: 10–20 min, including a restart
+    errors:
+      - see: "WslRegisterDistribution failed with error: 0x80370102"
+        fix: Virtualisation is switched off. Enable it in the BIOS/UEFI settings (Intel VT-x or AMD-V), then run the command again.
+
+  - title: Check your free disk space
+    run: df -h ~
+    expect: A table; the **Avail** column for your home folder should show at least `10G`.
+    time: seconds
+    errors:
+      - see: Avail shows less than 10G
+        fix: Free up space first (empty the trash, remove large downloads). The installation stops half-way on a full disk.
+
+  - title: Install git, make and curl
+    run_os:
+      macos: xcode-select --install
+      windows: sudo apt update && sudo apt install -y git make curl
+      linux: sudo apt update && sudo apt install -y git make curl
+    expect: "macOS opens a dialog: click **Install**. If it says the tools are already installed, you are done. On Ubuntu, apt ends without an error."
+    time: 2–10 min
+    errors:
+      - see: "xcode-select: error: command line tools are already installed"
+        fix: Nothing to do; go to the next command.
+      - see: "E: Unable to locate package"
+        fix: Run `sudo apt update` first, then the install command again.
+
+  - title: Get the code
+    run: git clone https://github.com/M-Rodani1/tsfm-benchmark.git && cd tsfm-benchmark
+    expect: "`Cloning into 'tsfm-benchmark'...` and a few progress lines. You are now inside the folder; every later command runs from here."
+    time: 1 min
+    errors:
+      - see: "fatal: destination path 'tsfm-benchmark' already exists"
+        fix: You cloned it before. Run `cd tsfm-benchmark && git pull` instead.
+      - see: "remote: Repository not found. / fatal: Authentication failed"
+        fix: The repository is private (or you mistyped the name). Use the next command, “If the repository is private”.
+
+  - title: If the repository is private
+    optional: true
+    run_os:
+      macos: brew install gh && gh auth login && gh repo clone M-Rodani1/tsfm-benchmark && cd tsfm-benchmark
+      windows: sudo apt install -y gh && gh auth login && gh repo clone M-Rodani1/tsfm-benchmark && cd tsfm-benchmark
+      linux: sudo apt install -y gh && gh auth login && gh repo clone M-Rodani1/tsfm-benchmark && cd tsfm-benchmark
+    expect: "`gh auth login` asks a few questions (choose GitHub.com, HTTPS, and “Login with a web browser”) and shows a one-time code to enter in your browser. Then `Cloning into 'tsfm-benchmark'...`."
+    time: 3 min
+    errors:
+      - see: "brew: command not found"
+        fix: Install Homebrew first (https://brew.sh), or download the GitHub CLI installer from https://cli.github.com.
+      - see: "GraphQL: Could not resolve to a Repository"
+        fix: Your GitHub account has no access to the repository. Ask its owner to add you as a collaborator, then try again.
+
+  - title: Install uv (the Python project manager)
+    run: curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env && uv --version
+    expect: The installer reports where it put `uv`; the last line is `uv` followed by a version number, for example `uv 0.8.17`.
+    time: 1 min
+    errors:
+      - see: "uv: command not found (after installing)"
+        fix: Open a new terminal window (so it picks up the new PATH), `cd tsfm-benchmark`, and run `uv --version` again.
+
+  - title: Install Python 3.11
+    run: uv python install 3.11
+    expect: "`Installed Python 3.11.x in …s` (or a message that 3.11 is already installed)."
+    time: 1 min
+    errors:
+      - doctor: python
+
+  - title: Install everything the study needs
+    run: make install-all
+    expect: "`uv sync --frozen --extra tsfm --group learn`, then uv resolves, downloads and installs a few hundred packages and ends with `Installed … packages in …`. PyTorch makes up most of the download."
+    time: 10–30 min
+    errors:
+      - see: "make: *** No rule to make target 'install-all'.  Stop."
+        fix: You are not in the project folder. Run `cd tsfm-benchmark` first.
+      - see: "No space left on device"
+        fix: The disk is full. Free at least 10 GB and run `make install-all` again; finished downloads are kept.
+      - doctor: packages
+      - error: "ModuleNotFoundError"
+
+  - title: Check everything, and download the model weights
+    run: make doctor ONLINE=1
+    expect: "A list of checks, almost all ✓ OK, ending with `Everything needed for tests, lessons and make smoke works. 1 optional item(s) (!) matter only for the real study.` The one `!` is the empty real-data cache, which Phase 2 fills."
+    time: 5–10 min (it downloads the three models, about 1 GB)
+    errors:
+      - doctor: python
+      - doctor: uv
+      - doctor: lock_drift
+      - doctor: tsfm_missing
+      - doctor: weights_failed
+      - doctor: weights_missing
+check:
+  parser: doctor
+  prompt: Paste everything that `make doctor ONLINE=1` printed (select it all in the terminal and copy).
+  success: No ✗, and the packages and model weights the real study needs are in place.
+  # a published real run of the study proves the laptop was set up
+  auto: real_results

@@ -1,0 +1,18 @@
+- q: What is an AR(p) model?
+  a: x_t = c + phi_1 x_{t-1} + ... + phi_p x_{t-p} + noise; today is a linear function of the last p values.
+- q: What does BIC trade off, and why compute it on training data only?
+  a: Fit (n ln(RSS/n)) against complexity (k ln n); using test data to choose p would be look-ahead.
+- q: Write the GARCH(1,1) variance recursion.
+  a: sigma2_{t+1} = omega + alpha eps_t^2 + beta sigma2_t.
+- q: What does alpha + beta measure in GARCH?
+  a: Persistence, i.e. how slowly a variance shock fades; the long-run variance is omega / (1 - alpha - beta).
+- q: What does GJR-GARCH add?
+  a: An extra term gamma * eps_t^2 * 1[eps_t < 0], so negative shocks can raise variance more (leverage effect).
+- q: What are the three HAR regressors?
+  a: Yesterday's variance, the 5-day (weekly) mean and the 22-day (monthly) mean.
+- q: Why are HAR coefficients fitted on GK smaller than the true ones?
+  a: Errors in variables; noise in the regressors attenuates their coefficients.
+- q: Direct vs iterated multi-step forecasts?
+  a: Direct fits a separate model per horizon; iterated applies a one-step model repeatedly.
+- q: Why does the study scale GARCH/EWMA forecasts by c = mean(GK)/mean(r^2)?
+  a: They model close-to-close variance, but the target is open-to-close GK; c is estimated on training data only.

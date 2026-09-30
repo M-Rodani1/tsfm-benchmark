@@ -1,0 +1,16 @@
+- q: Write the Garman–Klass daily variance estimator.
+  a: 0.5 [ln(H/L)]^2 − (2 ln 2 − 1) [ln(C/O)]^2 (times 100^2 for %^2).
+- q: Why is GK always non-negative for valid OHLC?
+  a: "|ln(C/O)| ≤ ln(H/L) and 0.5 > 2 ln 2 − 1 ≈ 0.386, so the first term dominates."
+- q: Why is volatility forecastable when returns are not?
+  a: Variance moves slowly and clusters, so its past strongly predicts its near future.
+- q: What is a volatility "proxy"?
+  a: A noisy but (roughly) unbiased measurement of the unobservable true variance, e.g. r^2 or GK.
+- q: Why prefer GK over squared returns as the proxy?
+  a: It uses the intraday range and is several times less noisy (about 7x more efficient in theory).
+- q: What does GK miss in real markets?
+  a: The overnight gap between yesterday's close and today's open; it measures open-to-close variance.
+- q: Why is GK slightly biased low in practice?
+  a: Trading is discrete, so the recorded high/low understate the true extremes of the price path.
+- q: How does the study define the h-day volatility target?
+  a: The mean of the daily GK variance over the next h trading days (%^2 per day).

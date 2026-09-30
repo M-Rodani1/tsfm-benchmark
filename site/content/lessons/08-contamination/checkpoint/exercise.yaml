@@ -1,0 +1,5 @@
+function: my_delta
+hints:
+  - "First compute each window's ratio of *total* losses: R = sum(model) / sum(reference)."
+  - "Δ is the clean log-ratio minus the seen log-ratio."
+  - "`np.log(np.sum(m_clean) / np.sum(ref_clean)) - np.log(np.sum(m_seen) / np.sum(ref_seen))`"

@@ -1,0 +1,26 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0
+rootdir: /home/user/tsfm-benchmark
+configfile: pyproject.toml
+plugins: platformdirs-4.12.0, timeout-2.4.0, anyio-4.15.1, hydra-core-1.3.0, jaxtyping-0.2.38
+collected 3 items
+
+tests/test_doctor_flashcards.py F..                                      [100%]
+
+=================================== FAILURES ===================================
+______________________ test_doctor_runs_and_reports_fixes ______________________
+
+capsys = <_pytest.capture.CaptureFixture object at 0x7f474613b350>
+
+    def test_doctor_runs_and_reports_fixes(capsys):
+        rc = doctor.run_doctor(online=False)
+        out = capsys.readouterr().out
+        assert "Python" in out and "fixtures" in out and "results" in out
+>       assert rc == 0  # nothing *required* is missing in the test environment
+        ^^^^^^^^^^^^^^
+E       assert 1 == 0
+
+tests/test_doctor_flashcards.py:14: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_doctor_flashcards.py::test_doctor_runs_and_reports_fixes - ...
+========================= 1 failed, 2 passed in 3.03s ==========================

@@ -1,14 +1,22 @@
+# GENERATED from site/content/lessons/04-ar-garch-har by `make lessons`: edit the source, not this file.
+
 # %% [markdown]
 # # Lesson 04: AR, GARCH and HAR by hand
-# ⏱ **90 min** · code you will read: `src/tsfm_rc/models/baselines.py`
+# ⏱ **90 min** · code you will read: `src/tsfm_rc/models/baselines.py`, `src/tsfm_rc/models/garch_np.py`
 #
 # **You'll be able to…**
 # 1. fit AR(p) with least squares and pick p with BIC;
-# 2. run the GARCH(1,1) variance recursion yourself and check `arch` recovers the truth;
+# 2. run the GARCH(1,1) variance recursion yourself and recover the true parameters;
 # 3. build HAR regressors and explain why fitted coefficients look "too small";
 # 4. tell a *direct* forecast from an *iterated* one.
 #
 # **You need:** Lessons 01–03.
+
+# %% [markdown]
+# ## Setup
+#
+# The fixtures were simulated from known parameters, stored in `MANIFEST.json`. So in this
+# lesson every estimate can be checked against the truth.
 
 # %%
 import json
@@ -20,20 +28,29 @@ import pandas as pd
 from tsfm_rc.data.provider import FixtureProvider
 from tsfm_rc.data.synthetic import GarchSpec, garch_expected_variance
 from tsfm_rc.data.targets import daily_series
-from tsfm_rc.models.baselines import GARCH, HAR, ar_bic_select
+from tsfm_rc.models.baselines import HAR, ar_bic_select
 from tsfm_rc.models.features import har_design
+from tsfm_rc.models.garch_np import fit_garch11_t
 from tsfm_rc.paths import FIXTURE_DIR
 
 manifest = json.loads((FIXTURE_DIR / "MANIFEST.json").read_text())
 fx = FixtureProvider(FIXTURE_DIR / "synthetic_ohlcv.csv")
 latent = pd.read_csv(FIXTURE_DIR / "synthetic_latent.csv", parse_dates=["date"])
+print(sorted(manifest["specs"]))
 
 # %% [markdown]
-# ## 1. AR(p) and BIC
-# AR(2): `x_t = 0.5 x_{t-1} − 0.3 x_{t-2} + noise`. BIC = `n ln(RSS/n) + k ln n`: fit improves
-# with more lags, the penalty `k ln n` grows.
+# ## AR(p) and BIC
 #
-# 🤔 **Predict before you run:** which p in 0…5 will BIC pick?
+# AR(2): `x_t = 0.5 x_{t−1} − 0.3 x_{t−2} + noise`. BIC = `n ln(RSS/n) + k ln n`: the fit
+# improves with more lags, but the penalty `k ln n` grows.
+#
+# 🤔 **Predict before you run:** Which p in 0 … 5 will BIC pick?
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **2.** The true order is 2; with 2,000 observations BIC finds it (extra lags barely lower the RSS but pay ln n each).
+#
+# </details>
 
 # %%
 rng = np.random.default_rng(0)
@@ -51,10 +68,11 @@ for p in range(pmax + 1):
 print("repo's ar_bic_select picks p =", ar_bic_select(x, pmax)[0])
 
 # %% [markdown]
-# ## 2. GARCH(1,1) by hand
-# `σ²_{t+1} = ω + α ε_t² + β σ²_t`, with `ε_t = r_t − μ`. Big shock today → higher variance
-# tomorrow, fading at rate `α + β`. The fixture `SYN_GARCH_A` was simulated with known
-# parameters, so we can check the recursion against the stored truth.
+# ## GARCH(1,1) by hand
+#
+# `σ²_{t+1} = ω + α ε_t² + β σ²_t`, with `ε_t = r_t − μ`. A big shock today means a higher
+# variance tomorrow, fading at rate `α + β`. We run the recursion with the true parameters of
+# `SYN_GARCH_A` and compare with the stored true variance.
 
 # %%
 spec = manifest["specs"]["SYN_GARCH_A"]["variance"]
@@ -69,30 +87,55 @@ for t in range(1, len(eps)):
 print("max |hand − truth| =", np.abs(s2 - truth.to_numpy()).max())
 
 # %% [markdown]
-# 🤔 **Predict:** fitting GARCH to 16 years of data, how close will `α + β` get to the truth?
+# ## Estimating GARCH
+#
+# Now pretend the parameters are unknown and estimate them by maximum likelihood (Student-t
+# errors, as in the study).
+#
+# 🤔 **Predict before you run:** With 16 years of daily data, how close will the fitted α + β get to the true 0.98?
+#
+# - Within about 0.01
+# - Within about 0.1
+# - Not close at all
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **Within about 0.01.** Persistence α + β is well identified with thousands of days; α and β separately are less precise.
+#
+# </details>
 
 # %%
-g = GARCH("rv")
-g.fit(d)
-mu, omega, alpha, beta, nu = g.params
-print(f"fitted alpha={alpha:.3f} beta={beta:.3f} alpha+beta={alpha + beta:.3f}")
+g = fit_garch11_t(d["r"])
+print(f"fitted alpha={g.alpha:.3f} beta={g.beta:.3f} alpha+beta={g.alpha + g.beta:.3f}")
 print(f"true   alpha={spec['alpha']:.3f} beta={spec['beta']:.3f} alpha+beta={spec['alpha'] + spec['beta']:.3f}")
 
 # %% [markdown]
-# Multi-step: expected variance decays geometrically towards the long-run level
-# `ω / (1 − α − β)`. The h-step target averages these.
+# ## Multi-step GARCH forecasts
+#
+# Expected variance decays geometrically towards the long-run level `ω / (1 − α − β)`. The
+# h-step target averages these expected values.
 
 # %%
 true_spec = GarchSpec(spec["omega"], spec["alpha"], spec["beta"])
 for start in (0.3, 3.0):
-    plt.plot(range(1, 61), garch_expected_variance(true_spec, np.array(start), 60), label=f"σ²_(t+1) = {start}")
+    plt.plot(range(1, 61), garch_expected_variance(true_spec, np.array(start), 60), label=f"σ²(t+1) = {start}")
 plt.axhline(true_spec.uncond_var, ls="--", c="k"); plt.xlabel("steps ahead"); plt.legend();
 
 # %% [markdown]
-# ## 3. HAR: regress on yesterday, last week, last month
+# ## HAR: yesterday, last week, last month
+#
 # Direct model for h = 1: `GK_{t+1} = b0 + b_d GK_t + b_w mean5 + b_m mean22`.
 #
-# 🤔 **Predict:** the true process has b_d = 0.35. Will OLS on *measured* GK give more or less?
+# 🤔 **Predict before you run:** The true process has b_d = 0.35. Will OLS on *measured* GK give more or less?
+#
+# - More
+# - Less
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **Less.** Regressors measured with noise shrink their coefficients towards zero (errors in variables); part of the weight moves to the smoother weekly and monthly averages.
+#
+# </details>
 
 # %%
 dh = daily_series(fx.fetch("SYN_HAR_A", "2010-01-01", "2026-12-31"))
@@ -107,14 +150,13 @@ print("by hand:", np.round(b_hand, 3), "\nrepo   :", np.round(har.beta[1], 3))
 print("truth  :", {k: manifest["specs"]["SYN_HAR_A"]["variance"][k] for k in ("c", "b_d", "b_w", "b_m")})
 
 # %% [markdown]
-# Regressors measured with noise shrink their coefficients towards zero ("errors in
-# variables"), and part of the weight moves to the smoother weekly/monthly averages.
-#
 # **Direct vs iterated:** HAR and LightGBM fit one regression per horizon (direct). AR and
 # GARCH fit a one-step model and apply it repeatedly (iterated).
+
+# %% [markdown]
+# ## Checkpoint
 #
-# ## ✅ Checkpoint
-# Write `my_garch_path(eps, omega, alpha, beta, s0)`: array `s` with `s[0] = s0` and
+# Write `my_garch_path(eps, omega, alpha, beta, s0)`: an array `s` with `s[0] = s0` and
 # `s[t] = omega + alpha*eps[t-1]**2 + beta*s[t-1]`.
 
 # %% tags=["exercise"]
@@ -126,6 +168,29 @@ def my_garch_path(eps, omega, alpha, beta, s0):
 from checker import check
 check(my_garch_path)
 
+# %% [markdown] tags=["flashcards"]
+# ## Flashcards
+#
+# Cover the answer, say it out loud, then check. `make flashcards` exports these to Anki; the website schedules them for review.
+#
+# 1. **Q:** What is an AR(p) model?
+#    - **A:** x_t = c + phi_1 x_{t-1} + ... + phi_p x_{t-p} + noise; today is a linear function of the last p values.
+# 2. **Q:** What does BIC trade off, and why compute it on training data only?
+#    - **A:** Fit (n ln(RSS/n)) against complexity (k ln n); using test data to choose p would be look-ahead.
+# 3. **Q:** Write the GARCH(1,1) variance recursion.
+#    - **A:** sigma2_{t+1} = omega + alpha eps_t^2 + beta sigma2_t.
+# 4. **Q:** What does alpha + beta measure in GARCH?
+#    - **A:** Persistence, i.e. how slowly a variance shock fades; the long-run variance is omega / (1 - alpha - beta).
+# 5. **Q:** What does GJR-GARCH add?
+#    - **A:** An extra term gamma * eps_t^2 * 1[eps_t < 0], so negative shocks can raise variance more (leverage effect).
+# 6. **Q:** What are the three HAR regressors?
+#    - **A:** Yesterday's variance, the 5-day (weekly) mean and the 22-day (monthly) mean.
+# 7. **Q:** Why are HAR coefficients fitted on GK smaller than the true ones?
+#    - **A:** Errors in variables; noise in the regressors attenuates their coefficients.
+# 8. **Q:** Direct vs iterated multi-step forecasts?
+#    - **A:** Direct fits a separate model per horizon; iterated applies a one-step model repeatedly.
+# 9. **Q:** Why does the study scale GARCH/EWMA forecasts by c = mean(GK)/mean(r^2)?
+#    - **A:** They model close-to-close variance, but the target is open-to-close GK; c is estimated on training data only.
+
 # %% [markdown] tags=["after-flashcards"]
-# **Next:** open `lessons/05-foundation-models/lesson.ipynb` (what a foundation model is and
-# how it forecasts with zero training). Tick lesson 04 in `lessons/PROGRESS.md`.
+# **Next:** open `lessons/05-foundation-models/lesson.ipynb` (What a foundation model is, and how zero-shot forecasting works). Tick lesson 04 in `lessons/PROGRESS.md`.

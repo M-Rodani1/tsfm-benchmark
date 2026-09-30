@@ -7,8 +7,9 @@
 - q: What does autocorrelation at lag k measure?
   a: The correlation between a series and itself shifted by k periods.
 - q: What typically autocorrelates in daily financial data, r or |r|?
-  a: "|r| (the size of moves, i.e. volatility clusters); r itself barely does."
+  a: '|r| (the size of moves, i.e. volatility clusters); r itself barely does.'
 - q: Why is "forecast zero" a strong baseline for returns?
-  a: Expected daily returns are tiny compared with their noise, so estimating them adds more error than it removes.
+  a: Expected daily returns are tiny compared with their noise, so estimating them adds more error than
+    it removes.
 - q: Roughly how many observations are needed to detect a mean mu with noise sigma at t = 2?
   a: n ≈ (2 sigma / mu)^2; for 0.04% drift and 1% noise that is about 10 years of daily data.

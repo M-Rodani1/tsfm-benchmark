@@ -4,10 +4,22 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
+import platform
 import sys
 
-from tsfm_rc.config import config_hash, load_config
-from tsfm_rc.logging_utils import setup_logging
+# Bit-for-bit reproducibility across x86-64 machines (DECISIONS D-054). The OpenBLAS copies
+# bundled with the NumPy and SciPy wheels pick a CPU-specific kernel at load time, and the
+# GARCH fits (`arch`) stop at slightly different optima under different kernels. Pin the
+# generic Prescott kernels, which produced every committed artifact, unless the caller chose
+# a kernel. It only takes effect before NumPy is loaded (nothing above imports it); if NumPy
+# is already loaded (this module imported as a library, e.g. by the tests), setting it would
+# reach only child processes and make them differ from this one, so it is left alone.
+if platform.machine().lower() in ("x86_64", "amd64") and "numpy" not in sys.modules:
+    os.environ.setdefault("OPENBLAS_CORETYPE", "Prescott")
+
+from tsfm_rc.config import config_hash, load_config  # noqa: E402
+from tsfm_rc.logging_utils import setup_logging  # noqa: E402
 
 log = logging.getLogger("tsfm_rc.cli")
 
@@ -97,6 +109,19 @@ def _cmd_flashcards(args: argparse.Namespace) -> int:
     return flash_main()
 
 
+def _cmd_publish(args: argparse.Namespace) -> int:
+    from tsfm_rc.pipeline.publish import PUBLISH_ROOT, publish
+
+    index = publish(args.runs or None)
+    for e in index["runs"]:
+        tag = e["label"] or "real data"
+        print(f"[publish] {e['run']}: version {e['version']} ({tag}) -> {PUBLISH_ROOT / e['run'] / e['version']}")
+    if not index["real_results_available"]:
+        print("[publish] no real-data run published yet: the website keeps showing the pending `make reproduce` task.")
+    print("[publish] commit site/public/data/results and push; the website rebuilds from it.")
+    return 0
+
+
 def _has_data(cfg) -> bool:
     from tsfm_rc.data.cache import RawCache
     from tsfm_rc.paths import resolve
@@ -161,6 +186,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     fc = sub.add_parser("flashcards", help="export all lesson flashcards to flashcards.csv (Anki)")
     fc.set_defaults(func=_cmd_flashcards)
+
+    pb = sub.add_parser("publish-results", help="export stored statistics to versioned JSON for the website")
+    pb.add_argument("runs", nargs="*", help="run names under results/ (default: every run with statistics)")
+    pb.set_defaults(func=_cmd_publish)
 
     e = sub.add_parser("evaluate", help="recompute statistics from stored forecasts")
     e.add_argument("config")

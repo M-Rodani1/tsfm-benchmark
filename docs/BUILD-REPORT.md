@@ -15,6 +15,21 @@ ever run with its real weights. Every committed number is computed on synthetic 
 and all three TSFMs are reported `UNAVAILABLE`. The research question is therefore **not yet
 answered**; running `make reproduce` on a normal internet connection is the next step.
 
+**Audit-01 (§10)** added:
+- *Amendment A4:* stride-1 primary tests in the clean windows, with a Kiefer–Vogelsang
+  fixed-b test chosen by simulation.
+- *The website* (`site/`): all 11 lessons run in the browser, results are published with
+  provenance, plus review, notes and synced progress. Every lesson is verified in real
+  Pyodide by CI.
+- *Small statistical corrections.*
+- *A fix that makes the committed artifacts reproducible bit for bit* on x86-64 machines.
+
+**Guided journey (§11)** added a route through the whole project to the site:
+- a first-visit tour;
+- one "Do this next" card;
+- a "Your path" roadmap;
+- a page per terminal step, with checks of pasted terminal output.
+
 ## 1. What was built, build by build
 
 | Build | Commit | Contents |
@@ -40,7 +55,24 @@ All timings are from the build container (4 CPU cores, 15 GB RAM, no GPU).
 | `make smoke` (`configs/smoke.yaml`) | 4 synthetic fixture tickers, test period 2023-01 → 2026-06, stride 10 | UNAVAILABLE (HF blocked) | ≈ 40 s end to end |
 | `make reproduce-fixtures` (`configs/default_fixtures.yaml` = default design on 5 fixture tickers) | synthetic, test period 2015-01 → 2026-06, stride 5, both windows, B = 1000 | UNAVAILABLE | ≈ 3 min end to end (baselines 107 s, synthetic control 45 s, statistics ≈ 15 s) |
 | `make reproduce` (`configs/default.yaml`) | real Yahoo data | — | **not run**: Yahoo and Hugging Face blocked |
-| Test suite (`make test`) | fixtures + simulations | TSFM adapters with random weights | ≈ 2.5 min locally, ≈ 3 min in CI |
+| Test suite (`make test`) | fixtures + simulations | TSFM adapters with random weights | 302 tests: ≈ 4.3 min locally (with the TSFM extra), ≈ 3 min in CI (4 tests needing the TSFM extra skipped) |
+| Site tests (`site/`, Audit-01) | fixtures, published synthetic results | — | 45 Vitest tests (seconds); 20 Playwright tests, ≈ 1 min in CI including all 11 lessons in real Pyodide |
+
+**Amendment A4 (Audit-01) cost.** The primary family now uses stride-1 origins in the clean
+windows (a separate *primary pass*; see §10).
+- *Baselines:* one extra pass with 2 models per (asset, target), expanding window only, over
+  ≈ 541 origins (from 2024-07-30). On the fixtures it adds ≈ 15 s to `make smoke` and about a
+  minute to `make reproduce-fixtures`.
+- *TSFMs:* only the in-window origins that are not on the stride-5 grid are new (the output
+  cache serves the rest). On the default calendar:
+
+  | model | stride-1 clean origins | new origins | new requests | vs its stride-5 requests (45,864) |
+  |---|---|---|---|---|
+  | Chronos-Bolt | ≈ 439 | 352 | 27,456 | +60% |
+  | TimesFM 2.5 | ≈ 238 | 191 | 14,898 | +32% |
+  | Moirai 1.1 | ≈ 541 | 433 | 33,774 | +74% |
+
+  Counts use an approximate holiday calendar.
 
 Extrapolation (not a measurement): the default baselines on 26 real assets should take about
 15 minutes on 4 cores; TSFM inference is unmeasured (Chronos-Bolt tiny should be fast;
@@ -126,8 +158,10 @@ TimesFM 200M with flip-invariance doubles its forward passes; Moirai draws 100 s
   would pass through (flagged).
 
 **Reproducibility and provenance:**
-- Results are reproducible to floating-point tolerance, not bit-for-bit, across machines
-  (BLAS threads, summation order; D-025). Moirai's sampled forecasts depend on batch
+- Results are reproducible bit for bit on x86-64 machines with the locked wheels, because
+  `tsfm-rc` pins OpenBLAS's generic kernels (D-054, Audit-01). Elsewhere (e.g. ARM) they
+  agree to optimiser tolerance: GARCH-family forecasts on the fixtures moved by up to 0.036
+  between CPU kernels (D-054). Moirai's sampled forecasts depend on batch
   composition when the cache is partially filled (D-032).
 - Artifacts committed before Build 08 recorded the parent commit with `dirty: true`. The
   final artifacts are regenerated from the clean Build 08 tree (see §9).
@@ -185,6 +219,10 @@ Leakage: `src/tsfm_rc/origin.py`, `leakage.py`, `tests/test_leakage_harness.py`,
 Statistics vs references: `tests/test_stats.py` (statsmodels HAC, `dieboldmariano`,
 statsmodels Holm, `arch` MCS, CRPS closed form, Monte Carlo size).
 Traceability: `tests/test_reports.py`, `tests/test_dashboard.py`, `src/tsfm_rc/provenance.py`.
+A4: `tests/test_a4_primary.py`, `src/tsfm_rc/eval/fixedb.py`, `src/tsfm_rc/eval/size_study.py`.
+Website: `site/README.md`; security and data safety `site/tests/rls.test.ts`,
+`site/tests/sync.test.ts`, `site/tests/db.test.ts`, `site/tests/scripts.test.ts`,
+`netlify.toml`; browser `site/e2e/`.
 Design history: `docs/PREREGISTRATION.md` §11, `docs/DECISIONS.md`.
 
 ## 9. Build 08 commit and regenerated artifacts
@@ -203,3 +241,482 @@ Design history: `docs/PREREGISTRATION.md` §11, `docs/DECISIONS.md`.
   identical. Only the artifact SHA-256 values change, because the embedded provenance changed.
 - The follow-up commit ("Build 08 (artifacts)") contains only these regenerated
   `results/` and `reports/` files and this section.
+
+## 10. Audit-01 corrections
+
+Written 2026-09-28, after the Audit-01 correction prompt. Each fix was committed separately
+to `main`, by the repository owner's account, after the full local test suite passed. CI was
+red on two intermediate fix-2 commits (`a0b35fa`, `e9f517e`), and the next commits fixed
+what it found (§10.4). CI is green from `b24357e` on.
+
+### 10.1 Commits
+
+| Fix | Commit | What |
+|---|---|---|
+| 1 | `3a32639` | Amendment A4: stride-1 primary tests in the clean windows, size study, KV fixed-b test, separate primary pass, artifacts regenerated |
+| 2 (part 1) | `0fd6790` | Lessons moved to `site/content/` (single source; notebooks generated), `make publish-results`, browser-safe `tsfm_rc` (NumPy GARCH, `learn.stats_table`) |
+| 2 (part 2) | `a0b35fa` | The website `site/`, Supabase schema with RLS, `netlify.toml`, `docs/DEPLOY.md`, Vitest + Playwright, CI job `site` |
+| 2 (part 3) | `e9f517e` | Robust NumPy GARCH optimiser (CI found a 0.09 log-likelihood shortfall against `arch`); e2e waits for the lesson to render |
+| 2 (part 4) | `b24357e` | No lost writes when the page reloads right after an action (found by CI); lesson browser tests isolated and diagnosable |
+| 3 | `89b2306` | `dropped_nonfinite=N` flag, oracle-ratio bootstrap CIs and honest wording, PRETRAINING-DATA checklist, OpenBLAS kernel pinned (D-054) |
+| 3 (artifacts) | `e930b87` | `results/`, `reports/` and `site/public/data/results/` regenerated from the clean fix-3 tree |
+| finish | the commit adding this section | DEFINITION-OF-DONE (site criteria and A4), this section, browser notes on lessons 00 and 10 |
+
+### 10.2 Fix 1: amendment A4 and its simulation
+
+*What changed.* The 27 primary tests and the clean side of the contamination test now use
+every trading day inside each TSFM's clean window (stride 1). Everything else keeps stride 5,
+and the stride-1 forecasts are a separate pass with separate artifacts (D-041), so no
+secondary number moved. `tests/test_a4_primary.py` proves the latter cell by cell against
+the Build 08 artifacts. The same `h_eff`/lag rule now drives `dm_primary`, the contamination
+test and the `ratio_ci` block lengths (`h_eff = ceil(h / stride)`).
+
+*Simulation* (`src/tsfm_rc/eval/size_study.py`, 5,000 replications per cell, seed
+20260928; full 36-cell table in D-039). Grid: T ∈ {100, 250, 450}, h ∈ {1, 5, 20}, four
+null processes (AR(1) with φ = 0, 0.3, 0.6, and a GARCH squared-error differential).
+
+| test at stride 1 | worst-case \|size − 5%\| | mean \|size − 5%\| | size range |
+|---|---|---|---|
+| **Kiefer–Vogelsang fixed-b (Bartlett, bandwidth T), pre-registered** | **0.072** | **0.014** | 0.036–0.122 |
+| Bartlett, lag max(h − 1, NW) + fixed-b critical values | 0.109 | 0.050 | 0.045–0.159 |
+| Bartlett, lag max(h − 1, NW), HLN | 0.118 | 0.055 | 0.050–0.168 |
+| rectangular, lag h − 1, HLN (R's `dm.test`) | 0.281 | 0.053 | 0.046–0.331 |
+
+The KV variance is a sum of squares, so it cannot be negative. It is zero only for a
+constant series, and the test is then reported as p = NaN with the flag `zero_variance`,
+never replaced by another rule. The chosen test still over-rejects at T = 100, h = 20 (up
+to 12.2%). Every primary row therefore carries `sim_size_max`, the worst simulated size at
+the nearest simulated T not above its own. It costs power: at a mean shift where an ideal
+test has 80% power, it rejects 60–72% (D-039).
+
+*Inference cost* of the extra stride-1 origins: §2 (Chronos-Bolt +60%, TimesFM +32%,
+Moirai +74% forecast requests; baselines about +1 minute on the fixtures).
+
+### 10.3 Fix 2: the website
+
+A static Vite + React + TypeScript app in `site/`, built by Netlify. Its pages:
+- Home (continue where you stopped, due cards, the pending terminal task);
+- Lessons and the lesson pages;
+- Results;
+- Review;
+- Notes & log;
+- Research status (generated from this file and PREREGISTRATION.md);
+- Progress & sync.
+
+Python runs in the browser: Pyodide 314.0.7 in a Web Worker, with the core self-hosted and
+the packages loaded from the pinned CDN path. `tsfm_rc` is installed from a pure-Python wheel
+built from `src/`. Progress is stored in IndexedDB first and synced to Supabase when
+configured (D-043 to D-051).
+
+**Where an exercise does not run the study's own code** (each says so on its page):
+
+| Lesson | What runs in the browser instead | Evidence it is the same |
+|---|---|---|
+| 04 AR, GARCH, HAR | `tsfm_rc.models.garch_np`, a NumPy/SciPy re-implementation of the `arch` GARCH(1,1)-t estimator (`arch` does not run in Pyodide) | `tests/test_garch_np.py`: same variance path and likelihood as `arch` to 1e-10 at fixed parameters; the fitted likelihood is at least as high as `arch`'s (within 0.01) on every fixture, with the same parameters |
+| 00, 09, 10 | **Precomputed**: stored results read from the published JSON (`make publish-results`) instead of the Parquet files (no `pyarrow` in the lesson sandbox) | `tests/test_publish.py`: the JSON round-trips to the Parquet tables exactly (every float) |
+| 05 foundation models | Nothing: the models need PyTorch and their weights. The loading cell prints why, and the lesson points to the Results page | — |
+| 02 volatility | The Garman–Klass discretisation simulation uses 20,000 paths (the study's function defaults to 200,000) | Same function; only `n_paths` differs |
+
+All other lessons (01, 03, 06, 07, 08) run the study's own code unchanged.
+
+### 10.4 What was verified in a browser, and where
+
+- **CI only** (GitHub Actions, job `site`, Chromium with real Pyodide, `REQUIRE_PYODIDE=1`
+  so the tests cannot be skipped):
+  - every lesson: all code cells run, the unsolved starter fails the checker with an
+    explanation, the solution passes;
+  - one exercise failing and then passing, with tiered hints.
+
+  The build container cannot reach the Pyodide package CDN (egress policy), so these tests
+  are skipped there.
+- **In CI and in the build container** (Playwright, production build, production security
+  headers):
+  - completing a step, then reloading;
+  - autosave surviving a closed tab;
+  - export then import;
+  - reviewing due cards, then reloading;
+  - the Results page with provenance and the SYNTHETIC label;
+  - prerequisite override;
+  - offline use after a first visit.
+- **Also in CI:** every lesson under Pyodide's exact package versions on CPython 3.14.
+- **In the build container only:** a manual check that the self-hosted Pyodide core starts
+  under the production Content-Security-Policy.
+- **Two defects were found only by the CI browser run and fixed:**
+  - progress written right before a reload could be lost (`b24357e`, now covered by a unit
+    test);
+  - a prerequisite-lock timing issue in the tests (`e9f517e`).
+
+The first fully green browser run was GitHub Actions run `36492069235` on `b24357e`: all 20
+Playwright tests passed, including all 11 lessons in real Pyodide, in 57 s. The run on
+`e9f517e` had timed out on lesson 00 before the part-4 changes. Its trace could not be
+downloaded here (the artifact host is blocked), so it is not known which of those changes
+cured it. Clicks now fail after 60 s with Playwright's reason, and the test prints
+diagnostics, so a recurrence would explain itself in the CI log.
+
+### 10.5 Fix 3: small corrections
+
+- `dm_test` appends `dropped_nonfinite=N` to its flag when it drops NaN/inf values
+  (`tests/test_stats.py::test_dm_reports_dropped_nonfinite_values`). No stored flag changed:
+  the study's own series have no gaps.
+- **Synthetic control.**
+  - Each oracle ratio has a 95% stationary-bootstrap CI.
+  - The report and summary call a ratio below 1 whose CI covers 1 sampling noise.
+  - The figure draws the CIs.
+  - Tested in `tests/test_evaluate.py::test_synthetic_oracle_ratio_has_bootstrap_ci_and_honest_wording`.
+- **PRETRAINING-DATA.md** opens with a checklist of every claim not verified from a primary
+  source (C1–C5, T1–T6, M1–M3, R1–R2). A test requires every `[S]`, `[M]` and `[UNVERIFIED]`
+  row to be on it.
+
+### 10.6 A reproducibility finding (D-054)
+
+Regenerating the artifacts for fix 3 on a new build host moved GARCH forecasts, even though
+no forecasting code had changed. The cause is the OpenBLAS libraries bundled with the
+NumPy/SciPy wheels, which pick a CPU-specific kernel.
+
+**Scale** (smoke run):
+- forecasts moved by up to 0.036;
+- DM p-values moved by up to 0.011, with no 5% decision changed;
+- one MCS p-value of two near-tied GARCH variants moved from 0.255 to 1.000.
+
+**Fix.** Every committed artifact is reproduced exactly with OpenBLAS's generic Prescott
+kernels. `tsfm-rc` now pins them on x86-64 and records the choice in provenance.
+
+**Numbers after regeneration.** The regeneration ran `tsfm-rc all` on default_fixtures
+(3 min 51 s) and then smoke (57 s), both from a clean checkout of `89b2306`. It was slower
+than in Build 08 (2 min 57 s and 37 s) because the generic kernels are slower. Every table committed in fix 1 is identical cell by cell
+(`pandas.testing.assert_frame_equal`, exact), and so are all forecast files. The one
+difference is the synthetic-control table, which gains the three CI columns. Artifact
+hashes change because provenance changed (commit, the kernel field).
+
+### 10.7 Known weaknesses after Audit-01
+
+- **Browser tests run only in CI.** The build container cannot reach the Pyodide package CDN
+  (egress policy), so the real-Pyodide lesson tests have only ever run on GitHub Actions.
+- **Packages come from a CDN.** The site loads Pyodide's packages from jsDelivr on the first
+  visit. If the CDN is blocked, lessons show a clear "Python could not start" message.
+  Self-hosting the packages would add about 40 MB to every deploy.
+- **Parts of the site never run for real.** Supabase login and sync, the Netlify deploy and
+  the DNS change have not been done: they need the owner's accounts. RLS, the sync rule
+  and the trigger are tested on a real Postgres engine (PGlite), not on Supabase itself.
+- **Conflict handling is simple.** Last-write-wins per record keeps the later of two
+  offline edits to the same note; clock skew between devices can reorder near-simultaneous
+  edits (D-047).
+- **Statistics.**
+  - The A4 test buys accurate size with power: 60–72% where an ideal test has 80% (D-039).
+  - At T ≈ 100 with 20-day targets it still over-rejects (≈ 12%).
+- **Reproducibility across hardware.**
+  - Bit-for-bit only on x86-64 with the locked wheels.
+  - On other hardware, GARCH-family results agree to the tolerance stated in D-054.
+- Everything in §5 still applies. Above all, **no result on real data or with real
+  foundation-model weights exists yet.**
+
+### 10.8 Manual go-live steps
+
+`docs/DEPLOY.md` has the click-by-click version. In short:
+
+1. **Supabase.**
+   - Create a project.
+   - Copy the Project URL and the public **anon/publishable** key. Never copy the
+     service-role key.
+   - In the SQL Editor, run `site/supabase/migrations/20260928120000_progress_schema.sql`.
+     This creates seven tables, RLS and four `own_rows_*` policies per table.
+   - Under Authentication → URL Configuration, set the Site URL and the redirect URLs.
+2. **Netlify.**
+   - Import `M-Rodani1/tsfm-benchmark`, branch **`main`**. `netlify.toml` sets base `site`,
+     the command `npm run build` and the publish directory `dist`.
+   - Under Site configuration → Environment variables, add these, then deploy:
+
+     | Variable | Value |
+     |---|---|
+     | `VITE_SUPABASE_URL` | the Project URL |
+     | `VITE_SUPABASE_ANON_KEY` | the anon/publishable key |
+     | `VITE_ALLOWED_EMAIL` | your email address (optional) |
+3. **First sign-in.**
+   - Open the site and request a magic link under Progress & sync.
+   - Sign in.
+   - Then disable **Allow new users to sign up** in Supabase.
+4. **DNS.**
+   - In Netlify, add the custom subdomain.
+   - At your DNS provider, create `CNAME <subdomain> → <site>.netlify.app` and no A record.
+   - Once DNS verifies, provision the certificate.
+   - Set the same address as the Supabase Site URL.
+5. **Done.** `main` is the default branch on GitHub; the owner changed it after Audit-01.
+6. **After the real study.** Run `make reproduce`, then `make publish-results`, then commit
+   and push `site/public/data/results`. Netlify rebuilds, and phases 1, 2 and 5 of *Your
+   path* complete by themselves (§11).
+
+## 11. Guided journey (site fix)
+
+Written 2026-09-29, after the "Guided journey" prompt. The problem: the site had lessons, a
+Home "continue" card and a terminal-task card, but a first-time visitor could not tell the
+overall route, the order, how terminal work fits alongside the lessons, or what "done" means.
+
+### 11.1 Commits
+
+| Part | Commit | What |
+|---|---|---|
+| 1/4 | `5dcaee4` | `journey.yaml` and the four terminal tasks, build-time validation, `journey.ts` (statuses, `nextAction()`), pasted-output checks tested on real captured output, table `journey_state` with RLS, doctor fix catalog |
+| 2/4 | `23a64cb` | Tour, Home "Do this next", "Your path", terminal task pages, breadcrumbs, one "Next step" button, SYNTHETIC banners, browser tests |
+| 3/4 | `51ba7d0` | Lesson 00 "How to use this site", migration upgrade tests, `site/README.md`, `docs/DEPLOY.md`, DECISIONS D-055 to D-058 |
+| 4/4 | the commit adding this section | DEFINITION-OF-DONE rows 17–21, this section |
+
+### 11.2 The route
+
+Eight phases, defined in `site/content/journey.yaml`:
+
+| Phase | Where | Steps |
+|---|---|---|
+| P0 Start here | browser | tour, lesson 00 |
+| P1 Set up your laptop | laptop | clone, uv, Python 3.11, `make install-all`, `make doctor ONLINE=1` |
+| P2 Launch the real study | laptop | `make fetch-data`, `make reproduce` ("Start this now and keep learning while it runs.") |
+| P3 Foundations | browser | lessons 01–04 |
+| P4 Models and statistics | browser | lessons 05–08 (optional: review flashcards) |
+| P5 Publish the real results | laptop | `make publish-results`, commit, push |
+| P6 Read your results | browser | lesson 09, the Results page |
+| P7 Write it up | browser + laptop | lesson 10, `make test` and send for audit |
+
+After lesson 00 the site recommends P1 and P2 at once. P3–P4 run in parallel with P2, and
+P6–P7 need real results. Lessons are never hard-locked.
+
+### 11.3 How each terminal step is detected as done
+
+| Step | Automatic | From pasted output (success) | Otherwise |
+|---|---|---|---|
+| P1 set up | a real `default` run is published | `make doctor ONLINE=1`: ran to the end, no ✗, no ! except real-data cache, results, lessons or uv | “I've done this” (shown as self-reported) |
+| P2 run the study | same | `make reproduce`: `[evaluate]`, `[report] …/reports/default/…`, `[dashboard]`; another config is rejected by name; UNAVAILABLE models are flagged | same; a start button (or output showing the run started) marks it running |
+| P5 publish | same (the only completion) | `make publish-results` with a `(real data)` `default` run: progress only, “now commit and push” | same |
+| P7 audit | — | `make test`: the summary line, some tests passed and none failed | same |
+
+Real results means a published non-synthetic run named `default`. `publish.py` labels every
+run synthetic unless its data came from Yahoo Finance or CSV (D-055).
+
+### 11.4 What was verified, and how
+
+- **Unit tests** (`site/tests/`, 79 in all; 45 before this fix):
+  - `nextAction()` and the statuses in eight situations, from a fresh user to all done;
+  - breadcrumbs;
+  - YAML validation, including the bug below;
+  - the output checks on real captured output;
+  - RLS for `journey_state`: policies and grants equal the other tables', a re-run of the
+    migration, and the upgrade from the pre-journey schema.
+- **Browser tests** (`site/e2e/journey.spec.ts`, 4 tests, in CI and locally): the tour to
+  lesson 00; finishing lesson 00 making Phase 1 next; a real failed doctor output rejected
+  with its fixes and a real success output completing Phase 1; reloads keep everything; the
+  study running; self-report and reset; OS tabs; SYNTHETIC banners.
+  - The 8 existing app flows were updated to the new Home with the same assertions.
+  - The 12 real-Pyodide lesson tests still pass in CI with the new lesson page.
+- **Python:** `tests/test_doctor_flashcards.py` keeps the doctor's fix catalog in sync and
+  fails if the CLI's wording drifts from the site's parser. 304 tests pass.
+- **Captured output** (`site/tests/fixtures/cli/`): every file is real output of the command
+  named in its README, run on 2026-09-29, with two exceptions:
+  - the Phase 1 success case ran the real doctor against a staged model-weights cache,
+    because Hugging Face is blocked here;
+  - the tests derive the real study and a real publish from real captures by changing only
+    the run name or label.
+- **A manual browser pass** with screenshots found one defect the tests had missed: an
+  unquoted YAML item (`Windows: …`) became a mapping and crashed the Phase 1 page. It was
+  fixed, and the validator now rejects non-string text (a test covers it).
+
+### 11.5 Known weaknesses
+
+- **The laptop instructions have not been followed end to end on a real laptop.**
+  - *Run for real here:* `df`, `make doctor` (both modes), `make fetch-data`,
+    `make reproduce`, `make reproduce-fixtures`, `make publish-results`, `make test` and
+    `uv python install 3.11` ran in the build container (Linux).
+  - *Written from the tools' documentation, not run:* the macOS and Windows commands
+    (`xcode-select`, Homebrew, `wsl --install`, `powercfg`, `caffeinate`), `gh` for a private
+    repository, `systemd-inhibit` and the uv installer.
+- **The real study's duration is unmeasured.** "Several hours" is an estimate (§2).
+- **The site cannot see the laptop.** "Study running" is the learner's own click (or pasted
+  output showing it started). Phases 2 and 5 complete automatically only after a push has
+  made Netlify rebuild.
+- **Self-reported steps carry no evidence.** They are labelled as self-reported everywhere
+  and can be reset.
+- **Brief deviation: a sixth status.** The brief lists five statuses. *upcoming* was added
+  because calling an available step "locked" would be false (D-055).
+- **Conflict handling.** Journey state has the same last-write-wins limitations as the rest
+  of the progress (D-047).
+
+### 11.6 A defect found after release, and its fix
+
+The owner reported a blank page after the journey went live. Every browser that had used the
+site before could not start: its local database was opened with a hard-coded version 1, so
+the new `journey_state` store was never created. Fresh browsers were fine, which is why every
+test passed: they all start from an empty browser.
+
+**The fix** (D-057):
+- the database now upgrades itself whenever a store is missing, keeping all data;
+- a tab still running the old site produces a "close the other tabs" message instead of
+  hanging;
+- any failure while starting shows a message instead of a blank page.
+
+**The lesson for the tests.** Tests now include a browser that already has the old
+database, and they must keep doing so for every future schema change. The new tests fail
+on the released code and pass with the fix.
+
+### 11.7 What you need to do
+
+- **If Supabase is already set up**, run
+  `site/supabase/migrations/20260928120000_progress_schema.sql` again in the SQL Editor. It
+  adds `journey_state` with the same protection and keeps your data (tested).
+- Otherwise nothing: Netlify rebuilds from `main` on the next push. A browser that showed
+  the blank page recovers by itself on the next load, with its progress intact.
+
+
+## 12. Design: the study console (Direction B)
+
+Written 2026-09-29, after the "Study console" redesign prompt and its two comps (Home, and a
+lesson step with a chart question). The site now looks and behaves like a console for one
+study. The next action comes first; what runs on your laptop is shown with how the site knows
+it; reading happens in a calm serif column. The reference is `site/DESIGN.md`
+(tokens, type, layout, data semantics, states); the decisions are D-059 and D-060.
+
+### 12.1 Commits
+
+| Part | Commit | What |
+|---|---|---|
+| 1/4 | `5f48eb8` | `study_facts()` and `study.json` (models under test from the config and buffer); lesson 02's chart question, its figure generator and tests |
+| 2/4 | `c91b215` | Self-hosted fonts, the tokens (light + dark), `DESIGN.md`, contrast and format tests |
+| 3/4 | `2069589` | Top bar, rail, Home, lessons and predict, every other page, states, browser tests with axe |
+| 4/4 | the commit adding this section | Screenshots and their script, docs |
+
+### 12.2 What changed, and what did not
+
+**Changed** (appearance, layout, interaction):
+
+- the tokens, the type and the 6px shape, with no shadows and no card grids;
+- a 56px top bar and a 290px rail on every console page;
+- Home: the next action, "The study on your laptop" with its evidence tiers and the "It has
+  finished" dialog, "Models under test", and the Today column;
+- lesson pages: the step rail, "Step N of M", serif reading at 19px/1.7 and 65ch, and exactly
+  one primary Next;
+- predict questions: radios in a fieldset, a Check button, an `aria-live` result, Continue and
+  Try again;
+- charts follow the data semantics: observed values solid graphite, forecasts blue dashed,
+  labels at line ends, the selected model blue;
+- responsive rules at 1200, 860 and 390px;
+- loading, error and empty states (DESIGN.md, "Controls and states").
+
+**Not changed:**
+
+- the research code and the statistics;
+- what any existing lesson teaches;
+- `lib/journey.ts` and `nextAction()`: the Vitest journey tests pass unchanged;
+- the stored data formats, the CSP (`font-src 'self'` holds: fonts come from `@fontsource`,
+  latin subsets only) and the security rules (anon key only; no raw prices published).
+
+**Two additions, both needed by the comps and derived from the repository:**
+
+- **`study.json`.** Home's "Models under test" shows each model, when its weights were
+  released and the first clean test day. `tsfm_rc.pipeline.publish.study_facts` computes these
+  from `configs/default.yaml` and the contamination rule (`contamination.windows`: effective
+  release + 30-day buffer). Once a real run has recorded the weights' commit dates, those are
+  used, exactly as in the study. `make publish-results` writes the file, and
+  `tests/test_publish.py` checks it is current and equals the window rule. No date is typed by
+  hand.
+- **Lesson 02's chart question** ("Volatility comes in clusters", a new step before "Three ways
+  to measure one day's variance"). It is new content, not a change to existing content. §12.4
+  explains how its answer is decided and what went wrong on the way.
+
+**Three presentation changes to existing wording, noted for the auditor:**
+
+- The breadcrumb on a lesson reads "Phase 3 · Foundations · lesson 2 of 4" (it was "step 2 of
+  4", which clashed with the lesson's own steps).
+- Home's heading reads "Next: <lesson or task title>". The button keeps "Start/Continue lesson
+  NN".
+- "Where progress is saved" moved from a banner on every page to Home, Account and the top bar
+  (D-059).
+
+The browser tests were updated to these texts and to the radio-based predict.
+
+### 12.3 How it was verified
+
+- **Unit** (Vitest, 157 tests):
+  - `tests/design.test.ts` parses the tokens from `styles.css` and checks WCAG contrast for
+    every text token on the background, surface and tint in both themes (73 checks), plus the
+    primary button, the disabled button, code, the data lines and the Results matrix bins;
+  - it also checks that the system-dark and chosen-dark themes are identical;
+  - `tests/format.test.ts` checks the dates ("26 Nov 2024" in every locale).
+- **Browser** (Playwright, `e2e/design.spec.ts`), all passing:
+  - the chart question: Check disabled with its reason, the forecast drawn dashed, what happened
+    drawn on check, tags, the live result, Try again keeping the stored answer, Continue moving
+    focus;
+  - Home's study table, evidence labels, models from `study.json`, the rail, and the dialog
+    with a real captured output;
+  - at 390px: no sideways scroll on eight pages, 44px targets, the next action above the fold,
+    the rail disclosure, the menu, and stacked tables;
+  - an axe scan (WCAG 2.2 A/AA) of nine pages in light and in dark: no violations.
+- **All other browser tests** pass after the updates (19 of 19 here). The 12 exercise tests
+  need the Pyodide CDN and run in CI only. Their navigation was also checked here without
+  Python.
+- **Screenshots**: 66 files in `site/docs/screenshots/`. The matrix is 1440, 1024 and 390px ×
+  light and dark, over Home (fresh, study running, published, all done), the four predict
+  states, Your path and Results, plus the rail opened at 390 and the dialog. I compared them
+  with the comps and fixed the gaps in one batch, then recaptured:
+  - the stacked table lost its status on merged rows;
+  - locale-dependent "Sept" dates;
+  - a duplicated glyph on Your path;
+  - chart text shrinking to 5px on phones (the chart now lays out at its shown width);
+  - the step heading's spacing;
+  - a long unavailable-models notice (now collapsed);
+  - a select that widened the page at 390;
+  - the task status alignment.
+- **The published and all-done Home states cannot occur yet** (no real run exists). Their
+  screenshots come from a temporary build with a fake run, are named `-SIMULATED`, and are
+  explained in the screenshots README.
+- **Full pytest suite:** 306 passed, before and after the chart-question fix (§12.4).
+
+### 12.4 The chart question: two mistakes, and the rule now used
+
+The comp shows a lesson step where you forecast volatility after a shock, then see what
+happened. The data come from the committed fixtures' latent volatility (the truth, since the
+series are simulated). The answer should come from the data, not from me. It took three
+attempts, and the first two were wrong in ways an auditor should know about.
+
+1. **Attempt 1.** SYN_GARCH_A, the largest jump, scored with log-MSE. "Snap back" came out
+   closest. I then changed the loss to QLIKE (the study's volatility loss, which is
+   defensible) and the series to SYN_GARCH_B. The series change was made after seeing the
+   result. That is a forking path.
+2. **Attempt 2.** On B, events were "calm 60 days, shock ≥ 1.3× the calm median, and **no
+   larger shock in the next 40 days**". The fade won 5 of 7 shocks, and the example was the
+   most recent event. While writing this report I ran the same rule on the other two GARCH
+   series. SYN_GARCH_A gave 5 of 8 for snap back and SYN_QUIRKS gave 16 of 18 for snap back.
+   The cause was the third condition, which looks at the future: it keeps only shocks with a
+   calm aftermath, so it biases towards "snap back". This is a look-ahead selection in a
+   course that teaches look-ahead bias (lesson 03).
+3. **The rule now used** (D-060).
+   - It never looks past the shock day: after an event the next 40 days are skipped, and the
+     first event wins.
+   - It pools every GARCH series of the fixtures (A, B, QUIRKS), so no choice of series
+     decides.
+   - Result: 73 shocks. The slow fade was closest 45 times, snapping back 23, climbing 5. Per
+     series: A 15/5/3, B 13/2/1, QUIRKS 17/16/1. The average variance 40 days after a shock
+     is 0.73–0.86 of the shock's (it fades slowly).
+   - The lesson's answer (the slow fade) was already the answer before this fix. It holds
+     under the corrected rule, clearly in A and B and narrowly in QUIRKS.
+   - The result panel shows the pooled tally, so a learner sees that "most likely" is a
+     frequency, not a certainty.
+   - `tests/test_lessons.py` recomputes the figure, and checks the pooling and that the fade is
+     the most frequent in every series.
+
+What remains a judgement:
+
+- the thresholds (1.35 calm, 1.3× shock, 60/40 days) and the three candidate paths were set
+  by me, not pre-registered;
+- the example shown is the most recent shock of SYN_GARCH_B, a display choice;
+- it is teaching material about synthetic series, not a finding about markets.
+
+### 12.5 Known weaknesses
+
+- **Pending ring below 3:1.** The pending ring `#A3ABB6` has a contrast of 2.32:1 on white.
+  It is kept because the brief specifies it, and it is always paired with a word
+  (DESIGN.md).
+- **Stacked tables and merged cells.** When stages share one status, desktop shows it once
+  across rows. The stacked phone layout repeats it per row instead. CSS shows only one copy at
+  a time, so assistive technology meets it once.
+- **Results matrix at 390px.** The matrix (10 numeric columns) scrolls inside its own box at
+  390px rather than stacking. Stacking would make the comparison unreadable.
+- **Axe covers the states the tests reach.** The axe scan covers nine pages in the states the
+  tests create. Pages behind a real Supabase sign-in were not scanned (no project here).
+- **Screenshot vantage.** The screenshots come from headless Chromium only. Safari and Firefox
+  were not checked visually.

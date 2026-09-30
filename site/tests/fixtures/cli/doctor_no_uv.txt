@@ -1,0 +1,3 @@
+uv run tsfm-rc doctor 
+make: uv: No such file or directory
+make: *** [Makefile:69: doctor] Error 127

@@ -1,0 +1,5 @@
+function: my_garman_klass
+hints:
+  - "Translate the formula term by term: `0.5 · ln(H/L)²` minus `(2 ln 2 − 1) · ln(C/O)²`. NumPy's log is `np.log`."
+  - "The formula gives a variance of *decimal* log returns; the study works in percent, so multiply by 100² = 1e4."
+  - "`1e4 * (0.5 * np.log(h / l) ** 2 - (2 * np.log(2) - 1) * np.log(c / o) ** 2)`"

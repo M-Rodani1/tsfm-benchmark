@@ -1,0 +1,5 @@
+function: my_garch_path
+hints:
+  - "Create an empty array of the same length as `eps` and set its first element to `s0`."
+  - "Loop `for t in range(1, len(eps))`: each value needs the *previous* variance and the *previous* shock."
+  - "`s[t] = omega + alpha * eps[t - 1] ** 2 + beta * s[t - 1]`, then `return s`."

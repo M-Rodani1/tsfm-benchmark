@@ -1,7 +1,8 @@
+# GENERATED from site/content/lessons/09-reading-results by `make lessons`: edit the source, not this file.
+
 # %% [markdown]
 # # Lesson 09: Reading, and critiquing, our own results
-# ⏱ **60 min** · files you will read: `reports/RESULTS.md`, `results/smoke/stats/*.parquet`,
-# `reports/dashboard/index.html`
+# ⏱ **60 min** · code you will read: `reports/RESULTS.md`, `results/smoke/stats/*.parquet`, `the Results page of this site`
 #
 # **You'll be able to…**
 # 1. trace any number in the report back to the stored table it came from;
@@ -11,33 +12,58 @@
 #
 # **You need:** Lessons 06–08.
 
+# %% [markdown]
+# ## The report and its tables
+#
+# The report is *rendered* from stored tables, never typed. We load three of them for the
+# `smoke` run and print the top of its report.
+
 # %%
 import pandas as pd
 
-from tsfm_rc.paths import REPORTS_DIR, RESULTS_DIR
+from tsfm_rc.learn import report_text, stats_table
 
-stats = RESULTS_DIR / "smoke" / "stats"
-dm_all = pd.read_parquet(stats / "dm_all.parquet")
-dm_primary = pd.read_parquet(stats / "dm_primary.parquet")
-mcs = pd.read_parquet(stats / "mcs.parquet")
-print((REPORTS_DIR / "smoke" / "RESULTS.md").read_text()[:900])
+dm_all = stats_table("smoke", "dm_all")
+dm_primary = stats_table("smoke", "dm_primary")
+mcs = stats_table("smoke", "mcs")
+print(report_text("smoke")[:900])
 
 # %% [markdown]
-# The banner matters most: these are **synthetic** fixtures. Nothing below is about markets.
+# The banner matters most: these are **synthetic** fixtures. Nothing here is about markets.
+
+# %% [markdown]
+# ## Trace a number
 #
-# ## 1. Trace a number
-# Section 4 of the report lists `garch` vs `har` for rv. Find the same row in the table.
+# The report lists `garch` vs `har` for rv. Find the same row in the stored table.
+#
+# 🤔 **Predict before you run:** If you edit a number in RESULTS.md by hand and re-render, what happens?
+#
+# - Your edit stays
+# - It is overwritten by the stored table's value
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **It is overwritten by the stored table's value.** The report is a pure function of the stored tables; a test even checks that re-rendering gives an identical file.
+#
+# </details>
 
 # %%
 row = dm_all.query("period == 'full' and window == 'expanding' and target == 'rv' and model == 'garch' and horizon == 5")
 print(row[["rel_loss", "rel_loss_lo", "rel_loss_hi", "dm_stat", "p_value", "p_holm", "T"]].round(3).to_string(index=False))
 
 # %% [markdown]
-# Same numbers as the report, because the report is *rendered* from this file (a test checks
-# that re-rendering gives an identical file).
+# ## Raw vs corrected
 #
-# ## 2. Raw vs corrected
-# 🤔 **Predict before you run:** of the tests with raw p < 0.05, what fraction survive Holm?
+# 🤔 **Predict before you run:** Of the tests with a raw p < 0.05, will all of them survive the Holm correction?
+#
+# - Yes
+# - No, some drop out
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **No, some drop out.** Holm raises the bar for all but the very smallest p-values; borderline ones drop out.
+#
+# </details>
 
 # %%
 fam = dm_all.query("period == 'full' and window == 'expanding'")
@@ -47,39 +73,61 @@ print(fam.loc[raw & ~fam["reject_holm"], ["target", "horizon", "model", "p_value
 
 # %% [markdown]
 # Those rows are what a less careful study would have published.
+
+# %% [markdown]
+# ## Absent is not null
 #
-# ## 3. Absent is not null
-# 🤔 **Predict:** what does the primary table say about the TSFMs in this run?
+# 🤔 **Predict before you run:** What does the primary table say about the foundation models in this run?
+#
+# - They did not beat the baselines
+# - They could not be evaluated (UNAVAILABLE)
+# - They beat the baselines
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **They could not be evaluated (UNAVAILABLE).** No weights could be loaded, so there is no evidence either way. Writing 'TSFMs did not beat the baselines' would be false.
+#
+# </details>
 
 # %%
 print(dm_primary["status"].value_counts())
 
 # %% [markdown]
-# "UNAVAILABLE" means *no evidence either way*. Writing "TSFMs did not beat the baselines"
-# here would be a false statement.
+# ## The MCS view
 #
-# ## 4. The MCS view
-# Instead of "who beat the reference?", the MCS asks "who cannot be ruled out as best?".
+# Instead of "who beat the reference?", the Model Confidence Set asks "who cannot be ruled out
+# as best?".
 
 # %%
 print(mcs.query("period == 'full' and ticker == 'POOLED' and target == 'rv'")
       [["horizon", "model", "mean_loss", "mcs_pvalue", "in_mcs"]].round(3).to_string(index=False))
 
 # %% [markdown]
-# ## 5. A critique checklist
-# Ask these of *any* forecasting result, including ours:
-# 1. **Data:** real or synthetic? Which period? Survivorship?
-# 2. **Leakage:** could any input have come from after the origin?
-# 3. **Sample size:** how many origins (T)? Any `small_sample` flags?
-# 4. **Multiplicity:** how many tests were run, and was the claim corrected?
-# 5. **Effect size:** is the CI narrow enough to matter, or just "significant"?
-# 6. **Contamination:** could the model have seen the test period?
-# 7. **Robustness:** does it hold with a rolling window? In the synthetic control?
+# ## A critique checklist
 #
-# Open `reports/dashboard/index.html` in a browser to explore the same tables interactively.
+# Ask these of *any* forecasting result, including ours: real or synthetic data, and which
+# period? Could any input come from after the origin? How many origins (T), any `small_sample`
+# flags? How many tests, and was the claim corrected? Is the CI narrow enough to matter? Could
+# the model have seen the test period? Does it hold with a rolling window?
 #
-# ## ✅ Checkpoint
-# Write `verdict(mean_diff, p_holm, alpha=0.05)` that returns exactly the report's wording:
+# 🤔 **Predict before you run:** A paper reports one model beating 10 others at p = 0.03 and does not mention the other 9 comparisons. Which checklist item fails first?
+#
+# - Leakage
+# - Multiplicity
+# - Contamination
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **Multiplicity.** Ten comparisons were run, but the claim was not corrected for them.
+#
+# </details>
+#
+# The Results page of this site shows the same tables interactively.
+
+# %% [markdown]
+# ## Checkpoint
+#
+# Write `verdict(mean_diff, p_holm, alpha=0.05)` returning exactly the report's wording:
 # `"model better"`, `"model worse"`, or `"no detectable difference"`.
 
 # %% tags=["exercise"]
@@ -91,6 +139,25 @@ def verdict(mean_diff, p_holm, alpha=0.05):
 from checker import check
 check(verdict)
 
+# %% [markdown] tags=["flashcards"]
+# ## Flashcards
+#
+# Cover the answer, say it out loud, then check. `make flashcards` exports these to Anki; the website schedules them for review.
+#
+# 1. **Q:** Where does every number in reports/RESULTS.md come from?
+#    - **A:** From stored tables in results/<run>/stats/*.parquet, listed with their SHA-256 in the Provenance section.
+# 2. **Q:** What is the difference between an absent result and a null result?
+#    - **A:** Absent = the model could not be evaluated (UNAVAILABLE), so no evidence either way; null = evaluated, no detectable difference.
+# 3. **Q:** A comparison has raw p = 0.01 but Holm p = 0.20. Is it a finding?
+#    - **A:** No. It does not survive the pre-specified multiple-testing correction.
+# 4. **Q:** What does a relative loss of 0.95 [0.90, 1.01] mean?
+#    - **A:** The model's loss is 5% below the reference on average, but the 95% CI includes 1 (no difference).
+# 5. **Q:** What does it mean if the MCS contains several models?
+#    - **A:** The data cannot distinguish them from the best model at the chosen confidence level.
+# 6. **Q:** Why flag tests with fewer than 100 origins?
+#    - **A:** The DM test's actual size is above nominal in small samples, so marginal p-values are unreliable.
+# 7. **Q:** Name four items of the critique checklist.
+#    - **A:** Real vs synthetic data, leakage, sample size, multiplicity (also effect size, contamination, robustness).
+
 # %% [markdown] tags=["after-flashcards"]
-# **Next:** open `lessons/10-writing-up/lesson.ipynb` (turning this into a short paper).
-# Tick lesson 09 in `lessons/PROGRESS.md`.
+# **Next:** open `lessons/10-writing-up/lesson.ipynb` (Writing it up as a short paper). Tick lesson 09 in `lessons/PROGRESS.md`.

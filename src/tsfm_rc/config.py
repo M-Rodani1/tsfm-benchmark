@@ -86,6 +86,9 @@ class EvaluationConfig(_Strict):
     )
     rolling_length: PositiveInt = 1000
     primary_window: Literal["expanding"] = "expanding"
+    # Amendment A4: the primary family and the clean side of the contamination test use
+    # origins every `primary_stride` trading days inside each TSFM's clean window.
+    primary_stride: PositiveInt = 1
 
     @model_validator(mode="after")
     def _check(self) -> EvaluationConfig:

@@ -1,0 +1,5 @@
+function: n_primary_tests
+hints:
+  - "A primary test exists for every combination of TSFM, target and horizon."
+  - "The config has lists for each: `cfg.models.tsfms`, `cfg.targets.kinds`, `cfg.targets.horizons`."
+  - "Multiply their lengths: `len(a) * len(b) * len(c)`."

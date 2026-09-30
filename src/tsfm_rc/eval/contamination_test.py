@@ -13,6 +13,10 @@ one-sided bootstrap p-value P*(Delta* <= 0) for H1: Delta > 0.
 
 The same statistic for a baseline pair that cannot memorise (placebo) shows how much Delta
 moves because the two periods differ in market regime.
+
+Amendment A4: the clean side is sampled at stride 1 and the seen side at stride 5, so the
+two sides have different overlap; each side's expected block length uses its own h_eff
+(``h_eff`` for the seen side, ``h_eff_clean`` for the clean side).
 """
 
 from __future__ import annotations
@@ -31,6 +35,7 @@ def contamination_delta(
     B: int,
     h_eff: int,
     rng: np.random.Generator,
+    h_eff_clean: int | None = None,
 ) -> dict:
     arrays = [np.asarray(a, float) for a in (m_seen, ref_seen, m_clean, ref_clean)]
     ms, rs, mc, rc = arrays
@@ -42,7 +47,7 @@ def contamination_delta(
     R_clean = mc.sum() / rc.sum()
     delta = float(np.log(R_clean) - np.log(R_seen))
     i_s = stationary_bootstrap_indices(len(ms), B, block_length(len(ms), h_eff), rng)
-    i_c = stationary_bootstrap_indices(len(mc), B, block_length(len(mc), h_eff), rng)
+    i_c = stationary_bootstrap_indices(len(mc), B, block_length(len(mc), h_eff if h_eff_clean is None else h_eff_clean), rng)
     d_star = np.log(mc[i_c].sum(1) / rc[i_c].sum(1)) - np.log(ms[i_s].sum(1) / rs[i_s].sum(1))
     lo, hi = np.quantile(d_star, [0.025, 0.975])
     return {

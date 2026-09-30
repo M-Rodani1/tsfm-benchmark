@@ -1,0 +1,76 @@
+uv run tsfm-rc all configs/default_fixtures.yaml
+[validate] configs/default_fixtures.yaml: OK (config_hash=99230c2713955c11)
+2026-09-29 01:04:37 | INFO    | tsfm_rc.data.panel | panel: 5 tickers, 4133 calendar days, raw_hash=4cfd9de8f6a3
+[data] 5 tickers loaded from fixture; 0 unavailable; 8 cleaning events; raw_hash=4cfd9de8f6a3 panel_hash=65b80dd3451a
+2026-09-29 01:04:39 | INFO    | tsfm_rc.engine.walkforward | walk-forward: 30 tasks, 576 origins, n_jobs=4
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+/home/user/tsfm-benchmark/src/tsfm_rc/models/baselines.py:233: ConvergenceWarning: The optimizer returned code 8. The message is:
+Positive directional derivative for linesearch
+See scipy.optimize.fmin_slsqp for code meaning.
+
+  res = self._model(r).fit(disp="off", options={"maxiter": 1000})
+[baselines] 224,640 forecast rows in 101s -> /home/user/tsfm-benchmark/results/default_fixtures/forecasts_baselines.parquet
+2026-09-29 01:06:21 | INFO    | tsfm_rc.engine.walkforward | walk-forward: 15 tasks, 480 origins, n_jobs=4
+[baselines/primary] 43,200 forecast rows (480 stride-1 origins) in 18s -> /home/user/tsfm-benchmark/results/default_fixtures/forecasts_baselines_primary.parquet
+2026-09-29 01:06:42 | WARNING | tsfm_rc.engine.tsfm_runner | chronos_bolt_tiny UNAVAILABLE: could not download 'amazon/chronos-bolt-tiny' from Hugging Face (ProxyError: (MaxRetryError("HTTPSConnectionPool(host='huggingface.co', port=443): Max retries exceeded with url: /api/models/amazon/chronos-bolt-tiny/revision/main (Caused by ProxyError('Unable to connect to prox). Check your internet connection / proxy, or pre-download with `huggingface-cli download amazon/chronos-bolt-tiny`.
+2026-09-29 01:06:42 | WARNING | tsfm_rc.engine.tsfm_runner | timesfm_2p5_200m UNAVAILABLE: could not download 'google/timesfm-2.5-200m-pytorch' from Hugging Face (ProxyError: (MaxRetryError("HTTPSConnectionPool(host='huggingface.co', port=443): Max retries exceeded with url: /api/models/google/timesfm-2.5-200m-pytorch/revision/main (Caused by ProxyError('Unable to connect ). Check your internet connection / proxy, or pre-download with `huggingface-cli download google/timesfm-2.5-200m-pytorch`.
+2026-09-29 01:06:54 | WARNING | tsfm_rc.engine.tsfm_runner | moirai_1p1_small UNAVAILABLE: could not download 'Salesforce/moirai-1.1-R-small' from Hugging Face (ProxyError: (MaxRetryError("HTTPSConnectionPool(host='huggingface.co', port=443): Max retries exceeded with url: /api/models/Salesforce/moirai-1.1-R-small/revision/main (Caused by ProxyError('Unable to connect to). Check your internet connection / proxy, or pre-download with `huggingface-cli download Salesforce/moirai-1.1-R-small`.
+[tsfm] chronos_bolt_tiny: UNAVAILABLE: could not download 'amazon/chronos-bolt-tiny' from Hugging Face (ProxyError: (MaxRetryError("HTTPSConnectionPool(host='huggingface.co', port=443): Max retries e
+[tsfm] timesfm_2p5_200m: UNAVAILABLE: could not download 'google/timesfm-2.5-200m-pytorch' from Hugging Face (ProxyError: (MaxRetryError("HTTPSConnectionPool(host='huggingface.co', port=443): Max re
+[tsfm] moirai_1p1_small: UNAVAILABLE: could not download 'Salesforce/moirai-1.1-R-small' from Hugging Face (ProxyError: (MaxRetryError("HTTPSConnectionPool(host='huggingface.co', port=443): Max retr
+[tsfm] 0 forecast rows in 16s
+2026-09-29 01:06:55 | INFO    | tsfm_rc.engine.walkforward | walk-forward: 30 tasks, 200 origins, n_jobs=4
+[synthetic] 10 simulated series, 96,000 rows in 42s
+2026-09-29 01:07:38 | INFO    | tsfm_rc.eval.evaluate | evaluating 223990 loss rows; common clean window starts 2025-10-15 00:00:00
+[evaluate] 15 tables -> /home/user/tsfm-benchmark/results/default_fixtures/stats in 16s
+[report] /home/user/tsfm-benchmark/reports/default_fixtures/RESULTS.md (index: /home/user/tsfm-benchmark/reports/RESULTS.md)
+[dashboard] /home/user/tsfm-benchmark/reports/dashboard/index.html (2.2 MB, open it in any browser; no server needed)

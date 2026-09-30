@@ -1,7 +1,8 @@
 - q: What should you run at the start of every session?
   a: make doctor (checks setup and prints fixes), then make smoke if you changed code.
 - q: What does make smoke do?
-  a: Runs the whole pipeline (data, forecasts, statistics, report, dashboard) on committed synthetic fixtures, offline, in about a minute.
+  a: Runs the whole pipeline (data, forecasts, statistics, report, dashboard) on committed synthetic fixtures,
+    offline, in about a minute.
 - q: Where is the analysis plan written down before any result?
   a: docs/PREREGISTRATION.md (changes only as dated amendments).
 - q: Where are judgment calls explained?
@@ -10,3 +11,9 @@
   a: Stored tables in results/<run>/stats/*.parquet, each carrying provenance.
 - q: How many primary tests does the study have, and why?
   a: 27 = 3 TSFMs × 3 targets × 3 horizons.
+- q: What runs in the browser, and what needs a terminal?
+  a: Lessons and result pages run in the browser; the full benchmark and the foundation models run locally
+    from a terminal (make reproduce).
+- q: How do new results reach the website?
+  a: make publish-results exports the stored statistics to versioned JSON in site/public/data; commit
+    and push, and the site rebuilds.

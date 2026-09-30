@@ -291,3 +291,79 @@ exactly this mean) and is unaffected by the size of r²_t on jump days. This mak
 baselines *stronger*, in line with "baselines must be strong, not strawmen".
 **Results seen at the time?** Only baseline results on synthetic fixtures (the ones that
 revealed the problem). No real-market data and no TSFM forecasts existed.
+
+### A4 — 2026-09-28 (Audit-01): statistical power in the clean windows
+**Change.**
+1. *Origins for the primary family (section 8.1) and for the clean side of the contamination
+   test (section 9).* Instead of the stride-5 schedule, these use **every trading day**
+   (stride 1, `evaluation.primary_stride`) inside each TSFM's own clean window (effective
+   release + 30 days, amendment A1, to the end of the data). A separate *primary pass*
+   produces these forecasts: every TSFM from its own clean start, and the reference and
+   placebo baselines (returns: `zero`, `ar_bic`; rv: `har`, `garch`; volume: `har`, `ar_bic`)
+   from the earliest possible clean start (the earliest documented release + 30 days), so
+   every clean window is covered. Expanding window only.
+2. *Everything else keeps stride 5 and is computed exactly as before*: all secondary tests
+   (S1–S5, S7–S9, including the full-period tests, the MCS on the full and common-clean
+   periods and the rolling-window robustness) and the *possibly-seen* side of the
+   contamination test. `tests/test_a4_primary.py` checks that every secondary table is
+   unchanged cell by cell.
+3. *Re-fit schedule in the primary pass.* The section 4 intervals are kept in trading days,
+   not origins: GARCH/GJR every 20 origins at stride 1 (= 4 origins at stride 5), LightGBM
+   every 250; models re-fitted at every origin still re-fit at every origin.
+4. *Test for the primary family.* Section 7's DM-HLN rule (as amended by A2) is replaced,
+   for the 27 primary tests only, by the **Kiefer–Vogelsang fixed-b test**: Bartlett kernel
+   with bandwidth equal to the sample size T (lag T − 1), no HLN factor, two-sided p-values
+   from its own limiting distribution W(1)/√(2∫B²) (computed exactly; reproduces the published
+   critical values 2.740 / 3.764 / 4.771 / 6.090). Holm over the 27 tests as before.
+   The variance is a sum of squares and cannot be negative; if it is zero (all differentials
+   equal) the test is undefined, reported with p = NaN and flagged `zero_variance`.
+5. *Block lengths.* h_eff = ⌈h / stride⌉ is computed from the stride of the origins actually
+   used, so h_eff = h in the primary pass (q_h = h − 1) and ⌈h/5⌉ in the main pass. The
+   relative-loss CIs of the primary tests use b = max(⌈T^{1/3}⌉, 2h). In the contamination test
+   the seen side uses its stride-5 h_eff and the clean side its stride-1 h_eff.
+6. *Reporting.* Each primary row shows T and the worst simulated size of the fixed-b test at
+   the nearest simulated T not above it (DECISIONS D-039); rows with T < 100 remain flagged
+   "small sample".
+
+**Why.** At stride 5 the clean windows are short. TimesFM 2.5 (effective release
+2025-09-15, clean from 2025-10-15, data to 2026-09-25) gets ≈ 48 origins at h = 1 and ≈ 44 at
+h = 20; Chronos-Bolt ≈ 88 and Moirai ≈ 108. That puts 9 of the 27 confirmatory tests at a
+sample size where A2's own simulation showed DM-HLN rejecting 7–13% at nominal 5%, and all
+27 at or below the T ≥ 100 threshold the report uses. Stride 1 raises T to ≈ 238 (TimesFM),
+≈ 439 (Chronos-Bolt) and ≈ 541 (Moirai) at h = 1. Stride 1 makes consecutive h = 5 and h = 20
+targets overlap in 4 and 19 days. Before fixing the variance rule, a Monte Carlo at stride 1
+(T ∈ {100, 250, 450}, h ∈ {1, 5, 20}, four null processes, 5,000 replications per cell)
+compared four candidates:
+- the rectangular kernel with lag h − 1;
+- Bartlett with lag max(h − 1, Newey–West);
+- Kiefer–Vogelsang fixed-b with b = 1;
+- Bartlett with fixed-b critical values.
+
+The selection rule, set before the documented run, was "smallest worst-case |size − 5%|
+across the grid". KV fixed-b won clearly:
+
+| test | worst-case size error | mean size error | size range |
+|---|---|---|---|
+| KV fixed-b | 0.072 | 0.014 | 0.036–0.122 |
+| Bartlett + fixed-b critical values | 0.109 | 0.050 | 0.045–0.159 |
+| Bartlett | 0.118 | 0.055 | 0.050–0.168 |
+| rectangular | 0.281 | 0.053 | 0.046–0.331 |
+
+The full table is in DECISIONS D-039. It costs power: at an alternative where an infeasible
+test with known variance has 80% power, KV rejects 60–72% versus 79–91% for the others (part
+of their extra "power" is their size distortion). Even so, it gains power overall relative to
+the stride-5 design, because T is about five times larger.
+
+**Known residual problem.** For h = 20 at T = 100 even KV rejects up to ≈ 12%. At the
+expected T (≥ 218 for h = 20) the simulated size is ≤ 8%.
+
+**Cost.** Baselines add one stride-1 pass with 2 models per (asset, target) over ≈ 541
+origins. TSFM inference adds only the in-window origins that are not on the stride-5 grid
+(the output cache serves the rest): about +60% (Chronos-Bolt), +32% (TimesFM 2.5) and +74%
+(Moirai) of each model's stride-5 requests; see BUILD-REPORT §10.
+
+**Results seen at the time?** No real-market data had been downloaded and no TSFM forecast
+existed on any data (weights were unreachable). Only baseline results on synthetic fixtures
+existed. The primary-family rows in those runs were all UNAVAILABLE, so no primary test
+statistic had ever been computed. Amendment requested by an independent audit
+(Audit-01, 2026-09-28).

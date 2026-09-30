@@ -1,56 +1,89 @@
+# GENERATED from site/content/lessons/00-orientation by `make lessons`: edit the source, not this file.
+
 # %% [markdown]
-# # Lesson 00: Orientation: how this project (and these lessons) work
+# # Lesson 00: Orientation: how this project (and this site) work
 # ⏱ **45 min** · code you will read: `configs/default.yaml`, `docs/PREREGISTRATION.md`
 #
 # **You'll be able to…**
-# 1. check your setup with `make doctor` and run the pipeline with `make smoke`;
+# 1. say what runs in this browser and what runs on your own computer;
 # 2. find your way around the repository;
 # 3. read the pre-registered design from a config;
-# 4. use the lesson routine: predict → run → checkpoint → flashcards → tick PROGRESS.md.
+# 4. use the lesson routine (predict, run, checkpoint, flashcards).
 #
-# **You need:** nothing. Start here.
+# **You need:** Nothing. Start here.
 
 # %% [markdown]
-# ## 1. Before every session (2 minutes)
-# In a terminal at the repo root:
-# ```
-# make doctor      # ✓ = fine, ! = optional, ✗ = fix it (the → line says how)
-# make smoke       # whole pipeline on synthetic data, about a minute
-# ```
-# The same checks, from Python:
-
-# %%
-from tsfm_rc.pipeline.doctor import check_fixtures, check_python
-
-for c in (check_python(), check_fixtures()):
-    print(c.status, c.name, "-", c.detail)
+# ## What runs where
+#
+# This site is where you learn and where you follow the research. Lesson code runs **in this
+# browser tab** (Python compiled to WebAssembly, called Pyodide). Nothing is installed on your
+# computer, and your progress is saved as you go.
+#
+# The foundation models and the full benchmark are far too heavy for a browser. They run on
+# your own computer from a terminal. The home page tells you exactly when a terminal task is
+# waiting, and which commands to type.
+#
+# 🤔 **Predict before you run:** Where does `make reproduce` (the full benchmark with the foundation models) run?
+#
+# - In this browser tab
+# - On your own computer, from a terminal
+# - On the web server that hosts this site
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **On your own computer, from a terminal.** The site only *displays* stored results. Heavy experiments run locally; `make publish-results` exports their numbers and a push updates the site.
+#
+# </details>
 
 # %% [markdown]
-# ## 2. The map
-# 🤔 **Predict before you run:** in which folder would you look for the code that computes
-# the Diebold–Mariano test?
+# ## Is the data what it should be?
+#
+# On your computer, `make doctor` checks everything before a session and prints a fix for
+# each problem. Here is one of its checks, run on the files this page loaded. Every committed
+# fixture file must match its SHA-256 fingerprint.
 
 # %%
-from tsfm_rc.paths import ROOT
+from tsfm_rc.pipeline.doctor import check_fixtures
 
+c = check_fixtures()
+print(c.status, "|", c.name, "|", c.detail)
+
+# %% [markdown]
+# ## The map
+#
+# 🤔 **Predict before you run:** In which folder would you look for the code that computes the Diebold–Mariano test?
+#
+# - results/
+# - src/tsfm_rc/eval/
+# - configs/
+# - lessons/
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **src/tsfm_rc/eval/.** All statistics live in the package `src/tsfm_rc/`; the test itself is `src/tsfm_rc/eval/dm.py`.
+#
+# </details>
+
+# %%
 purpose = {
     "configs": "one YAML file per experiment (smoke, default, full)",
     "data": "fixtures (committed, synthetic) and raw/ (downloaded, never edited)",
     "docs": "pre-registration, decisions, glossary, pretraining data, build report",
-    "lessons": "you are here",
-    "reports": "RESULTS.md, figures, dashboard (all generated)",
+    "lessons": "these lessons as Jupyter notebooks (an offline alternative)",
+    "reports": "RESULTS.md, figures, offline dashboard (all generated)",
     "results": "stored forecasts and statistics (Parquet with provenance)",
+    "site": "this website (lessons, results, review, progress)",
     "src": "the package tsfm_rc: data, models, engine, eval, reports",
     "tests": "automated checks (pytest), including the leakage tests",
 }
-for d in sorted(p.name for p in ROOT.iterdir() if p.is_dir() and not p.name.startswith(".")):
-    print(f"{d:10s} {purpose.get(d, '')}")
+for folder, what in purpose.items():
+    print(f"{folder:8s} {what}")
 
 # %% [markdown]
-# (Answer: `src/tsfm_rc/eval/dm.py`.)
+# ## The design lives in a config
 #
-# ## 3. The design lives in a config
-# The *default* config is the pre-registered study. Nothing about it may change silently.
+# The *default* config is the pre-registered study. Nothing in it may change silently: every
+# change is a dated amendment in `docs/PREREGISTRATION.md`.
 
 # %%
 from tsfm_rc.config import config_hash, load_config
@@ -61,31 +94,62 @@ print("TSFMs:", [t.name for t in cfg.models.tsfms], "| context:", cfg.models.con
 print("config hash:", config_hash(cfg)[:16], "(stored next to every result)")
 
 # %% [markdown]
-# 🤔 **Predict:** how many *primary* tests does the pre-registration contain? (Hint: every
-# TSFM × every target × every horizon.)
+# 🤔 **Predict before you run:** How many *primary* tests does the pre-registration contain? (Every TSFM × every target × every horizon.)
 #
-# ## 4. Results are files, not screenshots
-# Every number in the report comes from a stored table. Here is one:
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **27.** 3 models × 3 targets × 3 horizons = 27. That many tests is why lesson 07 needs a multiple-testing correction.
+#
+# </details>
+
+# %% [markdown]
+# ## Results are files, not screenshots
+#
+# Every number on the Results page comes from a stored table with provenance. The lessons read
+# the same tables. These are from the `smoke` run on **synthetic** data, so they say nothing
+# about markets.
 
 # %%
-import pandas as pd
+from tsfm_rc.learn import stats_table
 
-from tsfm_rc.paths import RESULTS_DIR
-
-m = pd.read_parquet(RESULTS_DIR / "smoke" / "stats" / "metrics.parquet")
+m = stats_table("smoke", "metrics")
 print(m.query("ticker == 'POOLED' and period == 'full' and window == 'expanding' and target == 'rv' and horizon == 1")
       [["model", "qlike", "mse"]].round(3).to_string(index=False))
 
 # %% [markdown]
-# ## 5. How each lesson works
-# - **🤔 Predict** first, then run: wrong predictions are where learning happens.
-# - **Checkpoint**: write a small function; the checker says ✅ or gives a hint. Stuck for
-#   10 minutes? Open `solution.py`.
-# - **Flashcards** at the end; `make flashcards` exports all of them to Anki.
-# - Tick the lesson in `lessons/PROGRESS.md` and write one line you'd forget.
+# ## How to use this site
 #
-# ## ✅ Checkpoint
-# Write `n_primary_tests(cfg)` returning the number of pre-registered primary tests.
+# The **Home** page always shows one card, *Do this next*: the next step of the whole project,
+# why it matters and how long it takes. **Your path** in the menu shows the full route, eight
+# phases from this lesson to a published study.
+#
+# Some steps happen on your laptop, in a terminal. Their pages give every command with a copy
+# button, say what you should see, and check the output you paste back. The real study
+# (Phase 2) takes hours but needs no attention: start it early and keep doing lessons while it
+# runs.
+#
+# 🤔 **Predict before you run:** Your study is running on your laptop and will take hours. What do you do meanwhile?
+#
+# - Wait: the lessons need the real results
+# - Keep going with lessons 01–08: they use the committed synthetic data
+# - Run it on this site instead, which is faster
+#
+# <details><summary>Answer (after you have predicted)</summary>
+#
+# **Keep going with lessons 01–08: they use the committed synthetic data.** Lessons 01–08 never wait for the study. Only lessons 09 and 10 read your real results; until they exist, those lessons show the synthetic runs, clearly labelled. The study itself is far too heavy for a browser.
+#
+# </details>
+
+# %% [markdown]
+# ## How every lesson works, and your first checkpoint
+#
+# - **Predict first**, then run: wrong predictions are where the learning happens.
+# - **Checkpoint**: write a small function; the checker answers ✅ or explains what is off.
+#   Hints come in tiers; the full solution is there after honest effort.
+# - **Flashcards** join your review queue when you finish the lesson.
+#
+# Write `n_primary_tests(cfg)` returning the number of pre-registered primary tests, read
+# from the config (don't hard-code 27).
 
 # %% tags=["exercise"]
 def n_primary_tests(cfg):
@@ -96,6 +160,27 @@ def n_primary_tests(cfg):
 from checker import check
 check(n_primary_tests)
 
+# %% [markdown] tags=["flashcards"]
+# ## Flashcards
+#
+# Cover the answer, say it out loud, then check. `make flashcards` exports these to Anki; the website schedules them for review.
+#
+# 1. **Q:** What should you run at the start of every session?
+#    - **A:** make doctor (checks setup and prints fixes), then make smoke if you changed code.
+# 2. **Q:** What does make smoke do?
+#    - **A:** Runs the whole pipeline (data, forecasts, statistics, report, dashboard) on committed synthetic fixtures, offline, in about a minute.
+# 3. **Q:** Where is the analysis plan written down before any result?
+#    - **A:** docs/PREREGISTRATION.md (changes only as dated amendments).
+# 4. **Q:** Where are judgment calls explained?
+#    - **A:** docs/DECISIONS.md, one numbered entry per decision.
+# 5. **Q:** Where do the numbers in reports/RESULTS.md come from?
+#    - **A:** Stored tables in results/<run>/stats/*.parquet, each carrying provenance.
+# 6. **Q:** How many primary tests does the study have, and why?
+#    - **A:** 27 = 3 TSFMs × 3 targets × 3 horizons.
+# 7. **Q:** What runs in the browser, and what needs a terminal?
+#    - **A:** Lessons and result pages run in the browser; the full benchmark and the foundation models run locally from a terminal (make reproduce).
+# 8. **Q:** How do new results reach the website?
+#    - **A:** make publish-results exports the stored statistics to versioned JSON in site/public/data; commit and push, and the site rebuilds.
+
 # %% [markdown] tags=["after-flashcards"]
-# **Next:** open `lessons/01-returns/lesson.ipynb` (returns, and why they are hard to
-# forecast). Tick lesson 00 in `lessons/PROGRESS.md`.
+# **Next:** open `lessons/01-returns/lesson.ipynb` (Returns, log returns, and why they are hard to forecast). Tick lesson 00 in `lessons/PROGRESS.md`.

@@ -17,6 +17,7 @@ from tsfm_rc.config import RunConfig
 from tsfm_rc.hashing import sha256_file
 from tsfm_rc.provenance import read_parquet_provenance
 from tsfm_rc.reports import figures
+from tsfm_rc.reports.fmt import ci, f2, f3, fp, md_table  # noqa: F401  (re-exported for lessons)
 
 TABLES = ["dm_primary", "dm_all", "dm_per_asset", "mcs", "probabilistic", "contamination",
           "economic", "synthetic", "metrics", "windows", "data_quality", "loss_diff_series", "scales"]
@@ -24,38 +25,6 @@ LOSS_NAME = {"mse": "MSE", "qlike": "QLIKE", "mae": "MAE"}
 
 
 # ------------------------------------------------------------------ formatting helpers
-def fp(p) -> str:
-    if p is None or not np.isfinite(p):
-        return "–"
-    return "<0.001" if p < 0.001 else f"{p:.3f}"
-
-
-def f3(x) -> str:
-    return "–" if x is None or not np.isfinite(x) else f"{x:.3f}"
-
-
-def f2(x) -> str:
-    return "–" if x is None or not np.isfinite(x) else f"{x:.2f}"
-
-
-def ci(r, lo, hi) -> str:
-    if not np.isfinite(r):
-        return "–"
-    if not (np.isfinite(lo) and np.isfinite(hi)):
-        return f"{r:.3f}"
-    return f"{r:.3f} [{lo:.3f}, {hi:.3f}]"
-
-
-def md_table(df: pd.DataFrame) -> str:
-    if df.empty:
-        return "*(no rows)*\n"
-    cols = list(df.columns)
-    lines = ["| " + " | ".join(str(c) for c in cols) + " |", "|" + "|".join("---" for _ in cols) + "|"]
-    for row in df.itertuples(index=False):
-        lines.append("| " + " | ".join(str(v) for v in row) + " |")
-    return "\n".join(lines) + "\n"
-
-
 def load_tables(run_dir: Path) -> dict[str, pd.DataFrame]:
     out = {}
     for t in TABLES:
@@ -123,29 +92,49 @@ def _summary(T: dict, status: dict, cfg: RunConfig) -> list[str]:
     S = T["synthetic"]
     if len(S):
         best = S[S["model"] != "oracle"].sort_values("ratio_to_oracle").groupby(["target", "horizon"]).head(1)
-        txt = "; ".join(f"{r.target} h={r.horizon}: `{r.model}` ({r.ratio_to_oracle:.3f}× oracle loss)" for r in best.itertuples())
-        L.append(f"- **Synthetic control** (series no model can have seen): closest to the oracle: {txt}.")
+        txt = "; ".join(f"{r.target} h={r.horizon}: `{r.model}` ({_oracle_ratio_text(r)})" for r in best.itertuples())
+        L.append(f"- **Synthetic control** (series no model can have seen): closest to the oracle: {txt}. "
+                 "A ratio below 1 whose CI covers 1 is sampling noise: the oracle is optimal only in expectation.")
     L.append("")
     return L
 
 
+def _oracle_ratio_text(r) -> str:
+    """'0.996× oracle loss, 95% CI [0.98, 1.01]: indistinguishable from the oracle' etc."""
+    lo, hi = getattr(r, "ratio_to_oracle_lo", np.nan), getattr(r, "ratio_to_oracle_hi", np.nan)
+    base = f"{r.ratio_to_oracle:.3f}× oracle loss"
+    if not (np.isfinite(lo) and np.isfinite(hi)):
+        return base
+    base += f", 95% CI [{lo:.3f}, {hi:.3f}]"
+    if lo <= 1.0 <= hi:
+        below = r.ratio_to_oracle < 1 and f"{r.ratio_to_oracle:.3f}" != "1.000"
+        return base + (": below 1 only by sampling noise" if below else ": indistinguishable from the oracle")
+    return base
+
+
 def _primary(T: dict) -> list[str]:
     L = ["## 2. Pre-registered primary tests (27)", "",
-         "Each TSFM vs the pre-registered reference baseline (returns: `zero`, rv: `har`, volume: `har`) on the "
-         "model's own **clean** window, pooled across assets, expanding window, primary loss. Relative loss < 1 "
-         "means the TSFM is better. DM-HLN two-sided p-values; Holm over the family.", ""]
+         "Each TSFM vs the pre-registered reference baseline (returns: `zero`, rv: `har`, volume: `har`) on "
+         "**stride-1 origins inside the model's own clean window** (amendment A4), pooled across assets, expanding "
+         "window, primary loss. Relative loss < 1 means the TSFM is better. Test: Kiefer–Vogelsang fixed-b "
+         "(Bartlett kernel, bandwidth T) with its own two-sided p-values; Holm over the family. "
+         "\"sim. size\" is the worst rejection rate of this test under the null in the A4 simulation at the "
+         "nearest simulated sample size not above T (nominal 5%; DECISIONS D-039).", ""]
     P = T["dm_primary"]
     if P.empty:
         return L + ["*(not computed)*", ""]
     rows = []
     for r in P.itertuples(index=False):
         if r.status != "AVAILABLE":
-            rows.append([r.model, r.target, r.horizon, r.reference, "UNAVAILABLE", "–", "–", "–", "–", "–"])
+            rows.append([r.model, r.target, r.horizon, r.reference, "UNAVAILABLE", "–", "–", "–", "–", "–", "–"])
             continue
         verdict = "TSFM better" if r.reject_holm and r.mean_diff < 0 else "TSFM worse" if r.reject_holm else "no detectable difference"
+        size = getattr(r, "sim_size_max", np.nan)
         rows.append([r.model, r.target, r.horizon, r.reference, ci(r.rel_loss, r.rel_loss_lo, r.rel_loss_hi),
-                     f2(r.dm_stat), fp(r.p_value), fp(r.p_holm), int(r.T), verdict + (f" ({r.flag})" if r.flag else "")])
-    df = pd.DataFrame(rows, columns=["model", "target", "h", "reference", "rel. loss [95% CI]", "DM", "p", "Holm p", "T", "verdict"])
+                     f2(r.dm_stat), fp(r.p_value), fp(r.p_holm), int(r.T), f3(size) if np.isfinite(size) else "T < 100",
+                     verdict + (f" ({r.flag})" if r.flag else "")])
+    df = pd.DataFrame(rows, columns=["model", "target", "h", "reference", "rel. loss [95% CI]", "t (KV)", "p", "Holm p", "T",
+                                     "sim. size", "verdict"])
     return L + [md_table(df)]
 
 
@@ -275,7 +264,9 @@ def _contamination(T: dict, fig_links: dict) -> list[str]:
     L = ["## 8. Contamination control", "",
          "Δ = ln R_clean − ln R_seen with R = (TSFM loss)/(reference loss); Δ > 0 would be consistent with "
          "memorisation. Placebo rows apply the same statistic to baselines that cannot memorise, on the same "
-         "windows, to show how much market-regime differences alone move Δ.", ""]
+         "windows, to show how much market-regime differences alone move Δ. The seen side uses the main stride-5 "
+         "origins; the clean side uses the stride-1 origins of the primary pass (amendment A4), each resampled "
+         "with a block length set by its own overlap.", ""]
     W = T["windows"]
     if len(W):
         L += [md_table(W[["model", "release_date", "weights_date", "effective_release", "clean_start", "common_clean_start"]].astype(str))]
@@ -307,18 +298,21 @@ def _synthetic(T: dict, fig_links: dict, meta: dict) -> list[str]:
          f"{meta.get('n_series', '?')} simulated series (GARCH(1,1) and HAR-type variance, calibrated on "
          f"`{meta.get('calibration_asset', '?')}`), {meta.get('test_days', '?')} test days each. The oracle knows the "
          "true conditional expectation. Ratios > 1 = worse than optimal. The oracle is optimal *in expectation*, so "
-         "in a finite sample a model can land slightly below 1 by chance; the DM p-value against the oracle says "
-         "whether a gap is distinguishable from noise.", ""]
+         "in a finite sample a model can land slightly below 1 by chance: when the ratio's 95% stationary-bootstrap CI "
+         "covers 1, the gap (either way) is sampling noise. The DM p-value against the oracle tests the same question.", ""]
     for p in fig_links.get("synthetic", []):
         if p.endswith(".png"):
             L.append(f"![synthetic]({p})")
     S = T["synthetic"]
     if S.empty:
         return L + ["*(not run)*", ""]
-    rows = [[r.target, r.horizon, r.model, LOSS_NAME.get(r.loss, r.loss), f3(r.mean_loss), f3(r.ratio_to_oracle),
-             f3(getattr(r, "ratio_to_oracle_latent", np.nan)), fp(r.dm_vs_oracle_p)]
+    rows = [[r.target, r.horizon, r.model, LOSS_NAME.get(r.loss, r.loss), f3(r.mean_loss),
+             ci(r.ratio_to_oracle, getattr(r, "ratio_to_oracle_lo", np.nan), getattr(r, "ratio_to_oracle_hi", np.nan)),
+             f3(getattr(r, "ratio_to_oracle_latent", np.nan)), fp(r.dm_vs_oracle_p),
+             ("noise (CI covers 1)" if getattr(r, "ratio_ci_covers_1", False) else "real (CI excludes 1)") if r.model != "oracle" else "reference"]
             for r in S.sort_values(["target", "horizon", "ratio_to_oracle"]).itertuples(index=False)]
-    return L + ["", md_table(pd.DataFrame(rows, columns=["target", "h", "model", "loss", "mean loss", "× oracle (proxy)", "× oracle (latent)", "DM p vs oracle"]))]
+    return L + ["", md_table(pd.DataFrame(rows, columns=["target", "h", "model", "loss", "mean loss", "× oracle (proxy) [95% CI]",
+                                                         "× oracle (latent)", "DM p vs oracle", "gap to oracle"]))]
 
 
 def _economic(T: dict, cfg: RunConfig) -> list[str]:
@@ -369,8 +363,9 @@ def _limitations(T: dict, prov: dict, status: dict) -> list[str]:
         "- **Pretraining corpora are only partly documented.** See the verification tags in `docs/PRETRAINING-DATA.md`; "
         "a null contamination result is not proof that the models never saw these series.",
         "- **Regime confounding.** Seen and clean windows are different market periods; the placebo only partly controls for this.",
-        "- **Amendments.** The design was amended three times before any real-data result existed (A1–A3 in "
-        "`docs/PREREGISTRATION.md`).",
+        "- **Amendments.** The design was amended four times before any real-data or TSFM result existed (A1–A4 in "
+        "`docs/PREREGISTRATION.md`). A4 moved the primary family to stride-1 origins with a fixed-b test; its "
+        "simulation still shows over-rejection for h = 20 at small T (up to ≈ 12% at T = 100).",
         "- **Economic evaluation** is a single illustrative strategy with no significance testing.",
         "",
     ]

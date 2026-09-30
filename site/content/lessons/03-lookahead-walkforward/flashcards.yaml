@@ -1,0 +1,16 @@
+- q: What is look-ahead bias?
+  a: Using any information from after the forecast origin t when making (or evaluating the inputs of) a forecast at t.
+- q: Why did the centred moving average "predict" pure noise so well?
+  a: With center=True the average at t includes t+1..t+5, so tomorrow's return is part of the signal.
+- q: What does ForecastOrigin.history(data) return?
+  a: A copy of data restricted to rows with timestamp <= the origin.
+- q: For a direct h-step model at origin position p, which training rows s may be used?
+  a: Only rows with s + h <= p, because their whole label window (s+1..s+h) is already observed.
+- q: How does the "scramble the future" test detect a leak?
+  a: It replaces all data after t with garbage; a causal function's output must not change at all.
+- q: Expanding vs rolling window?
+  a: Expanding uses all data from the start up to t; rolling uses only the last N observations.
+- q: What is the stride of a walk-forward schedule?
+  a: The number of trading days between consecutive forecast origins (5 in this study).
+- q: Name a subtle leak that is not about dates in an index.
+  a: Fitting a scaler (mean/std), choosing hyper-parameters, or selecting features on the full sample.

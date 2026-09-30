@@ -1,0 +1,113 @@
+uv run tsfm-rc all configs/default.yaml --fetch
+[validate] configs/default.yaml: OK (config_hash=631d122284527dbc)
+2026-09-29 01:04:06 | INFO    | tsfm_rc.data.cache | SPY: downloading from yfinance
+2026-09-29 01:04:06 | WARNING | yfinance | Cookie fetch from fc.yahoo.com failed (ConnectionError), continuing without it
+2026-09-29 01:04:07 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:07 | ERROR   | yfinance | Failed to get ticker 'SPY' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:07 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:07 | ERROR   | tsfm_rc.data.panel | SPY UNAVAILABLE: SPY: yfinance download failed: ConnectionError: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:07 | INFO    | tsfm_rc.data.cache | QQQ: downloading from yfinance
+2026-09-29 01:04:07 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:07 | ERROR   | yfinance | Failed to get ticker 'QQQ' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:08 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:08 | ERROR   | tsfm_rc.data.panel | QQQ UNAVAILABLE: QQQ: yfinance download failed: ConnectionError: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:08 | INFO    | tsfm_rc.data.cache | IWM: downloading from yfinance
+2026-09-29 01:04:08 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:08 | ERROR   | yfinance | Failed to get ticker 'IWM' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:08 | ERROR   | tsfm_rc.data.panel | IWM UNAVAILABLE: IWM: yfinance download failed: YFTzMissingError: $IWM: possibly delisted; no timezone found
+2026-09-29 01:04:08 | INFO    | tsfm_rc.data.cache | TLT: downloading from yfinance
+2026-09-29 01:04:08 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:09 | ERROR   | yfinance | Failed to get ticker 'TLT' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:09 | ERROR   | tsfm_rc.data.panel | TLT UNAVAILABLE: TLT: yfinance download failed: YFTzMissingError: $TLT: possibly delisted; no timezone found
+2026-09-29 01:04:09 | INFO    | tsfm_rc.data.cache | GLD: downloading from yfinance
+2026-09-29 01:04:09 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:09 | ERROR   | yfinance | Failed to get ticker 'GLD' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:09 | ERROR   | tsfm_rc.data.panel | GLD UNAVAILABLE: GLD: yfinance download failed: YFTzMissingError: $GLD: possibly delisted; no timezone found
+2026-09-29 01:04:09 | INFO    | tsfm_rc.data.cache | AAPL: downloading from yfinance
+2026-09-29 01:04:09 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:09 | ERROR   | yfinance | Failed to get ticker 'AAPL' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:09 | ERROR   | tsfm_rc.data.panel | AAPL UNAVAILABLE: AAPL: yfinance download failed: YFTzMissingError: $AAPL: possibly delisted; no timezone found
+2026-09-29 01:04:09 | INFO    | tsfm_rc.data.cache | MSFT: downloading from yfinance
+2026-09-29 01:04:10 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:10 | ERROR   | yfinance | Failed to get ticker 'MSFT' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:10 | ERROR   | tsfm_rc.data.panel | MSFT UNAVAILABLE: MSFT: yfinance download failed: YFTzMissingError: $MSFT: possibly delisted; no timezone found
+2026-09-29 01:04:10 | INFO    | tsfm_rc.data.cache | JNJ: downloading from yfinance
+2026-09-29 01:04:10 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:10 | ERROR   | yfinance | Failed to get ticker 'JNJ' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:10 | ERROR   | tsfm_rc.data.panel | JNJ UNAVAILABLE: JNJ: yfinance download failed: YFTzMissingError: $JNJ: possibly delisted; no timezone found
+2026-09-29 01:04:10 | INFO    | tsfm_rc.data.cache | PFE: downloading from yfinance
+2026-09-29 01:04:11 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:11 | ERROR   | yfinance | Failed to get ticker 'PFE' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:11 | ERROR   | tsfm_rc.data.panel | PFE UNAVAILABLE: PFE: yfinance download failed: YFTzMissingError: $PFE: possibly delisted; no timezone found
+2026-09-29 01:04:11 | INFO    | tsfm_rc.data.cache | UNH: downloading from yfinance
+2026-09-29 01:04:11 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:11 | ERROR   | yfinance | Failed to get ticker 'UNH' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:11 | ERROR   | tsfm_rc.data.panel | UNH UNAVAILABLE: UNH: yfinance download failed: YFTzMissingError: $UNH: possibly delisted; no timezone found
+2026-09-29 01:04:11 | INFO    | tsfm_rc.data.cache | JPM: downloading from yfinance
+2026-09-29 01:04:11 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:12 | ERROR   | yfinance | Failed to get ticker 'JPM' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:12 | ERROR   | tsfm_rc.data.panel | JPM UNAVAILABLE: JPM: yfinance download failed: YFTzMissingError: $JPM: possibly delisted; no timezone found
+2026-09-29 01:04:12 | INFO    | tsfm_rc.data.cache | BAC: downloading from yfinance
+2026-09-29 01:04:12 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:12 | ERROR   | yfinance | Failed to get ticker 'BAC' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:12 | ERROR   | tsfm_rc.data.panel | BAC UNAVAILABLE: BAC: yfinance download failed: YFTzMissingError: $BAC: possibly delisted; no timezone found
+2026-09-29 01:04:12 | INFO    | tsfm_rc.data.cache | PG: downloading from yfinance
+2026-09-29 01:04:12 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:12 | ERROR   | yfinance | Failed to get ticker 'PG' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:12 | ERROR   | tsfm_rc.data.panel | PG UNAVAILABLE: PG: yfinance download failed: YFTzMissingError: $PG: possibly delisted; no timezone found
+2026-09-29 01:04:12 | INFO    | tsfm_rc.data.cache | KO: downloading from yfinance
+2026-09-29 01:04:13 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:13 | ERROR   | yfinance | Failed to get ticker 'KO' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:13 | ERROR   | tsfm_rc.data.panel | KO UNAVAILABLE: KO: yfinance download failed: YFTzMissingError: $KO: possibly delisted; no timezone found
+2026-09-29 01:04:13 | INFO    | tsfm_rc.data.cache | WMT: downloading from yfinance
+2026-09-29 01:04:13 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:13 | ERROR   | yfinance | Failed to get ticker 'WMT' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:13 | ERROR   | tsfm_rc.data.panel | WMT UNAVAILABLE: WMT: yfinance download failed: YFTzMissingError: $WMT: possibly delisted; no timezone found
+2026-09-29 01:04:13 | INFO    | tsfm_rc.data.cache | HD: downloading from yfinance
+2026-09-29 01:04:13 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:13 | ERROR   | yfinance | Failed to get ticker 'HD' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:13 | ERROR   | tsfm_rc.data.panel | HD UNAVAILABLE: HD: yfinance download failed: YFTzMissingError: $HD: possibly delisted; no timezone found
+2026-09-29 01:04:13 | INFO    | tsfm_rc.data.cache | MCD: downloading from yfinance
+2026-09-29 01:04:13 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:14 | ERROR   | yfinance | Failed to get ticker 'MCD' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:14 | ERROR   | tsfm_rc.data.panel | MCD UNAVAILABLE: MCD: yfinance download failed: YFTzMissingError: $MCD: possibly delisted; no timezone found
+2026-09-29 01:04:14 | INFO    | tsfm_rc.data.cache | AMZN: downloading from yfinance
+2026-09-29 01:04:14 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:14 | ERROR   | yfinance | Failed to get ticker 'AMZN' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:14 | ERROR   | tsfm_rc.data.panel | AMZN UNAVAILABLE: AMZN: yfinance download failed: YFTzMissingError: $AMZN: possibly delisted; no timezone found
+2026-09-29 01:04:14 | INFO    | tsfm_rc.data.cache | XOM: downloading from yfinance
+2026-09-29 01:04:14 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:14 | ERROR   | yfinance | Failed to get ticker 'XOM' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:14 | ERROR   | tsfm_rc.data.panel | XOM UNAVAILABLE: XOM: yfinance download failed: YFTzMissingError: $XOM: possibly delisted; no timezone found
+2026-09-29 01:04:14 | INFO    | tsfm_rc.data.cache | CVX: downloading from yfinance
+2026-09-29 01:04:15 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:15 | ERROR   | yfinance | Failed to get ticker 'CVX' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:15 | ERROR   | tsfm_rc.data.panel | CVX UNAVAILABLE: CVX: yfinance download failed: YFTzMissingError: $CVX: possibly delisted; no timezone found
+2026-09-29 01:04:15 | INFO    | tsfm_rc.data.cache | CAT: downloading from yfinance
+2026-09-29 01:04:15 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:15 | ERROR   | yfinance | Failed to get ticker 'CAT' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:15 | ERROR   | tsfm_rc.data.panel | CAT UNAVAILABLE: CAT: yfinance download failed: YFTzMissingError: $CAT: possibly delisted; no timezone found
+2026-09-29 01:04:15 | INFO    | tsfm_rc.data.cache | UNP: downloading from yfinance
+2026-09-29 01:04:15 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:15 | ERROR   | yfinance | Failed to get ticker 'UNP' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:15 | ERROR   | tsfm_rc.data.panel | UNP UNAVAILABLE: UNP: yfinance download failed: YFTzMissingError: $UNP: possibly delisted; no timezone found
+2026-09-29 01:04:15 | INFO    | tsfm_rc.data.cache | VZ: downloading from yfinance
+2026-09-29 01:04:16 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:16 | ERROR   | yfinance | Failed to get ticker 'VZ' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:16 | ERROR   | tsfm_rc.data.panel | VZ UNAVAILABLE: VZ: yfinance download failed: YFTzMissingError: $VZ: possibly delisted; no timezone found
+2026-09-29 01:04:16 | INFO    | tsfm_rc.data.cache | DIS: downloading from yfinance
+2026-09-29 01:04:16 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:16 | ERROR   | yfinance | Failed to get ticker 'DIS' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:16 | ERROR   | tsfm_rc.data.panel | DIS UNAVAILABLE: DIS: yfinance download failed: YFTzMissingError: $DIS: possibly delisted; no timezone found
+2026-09-29 01:04:16 | INFO    | tsfm_rc.data.cache | NEE: downloading from yfinance
+2026-09-29 01:04:16 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:17 | ERROR   | yfinance | Failed to get ticker 'NEE' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:17 | ERROR   | tsfm_rc.data.panel | NEE UNAVAILABLE: NEE: yfinance download failed: YFTzMissingError: $NEE: possibly delisted; no timezone found
+2026-09-29 01:04:17 | INFO    | tsfm_rc.data.cache | SHW: downloading from yfinance
+2026-09-29 01:04:17 | WARNING | yfinance | Cookie/crumb fetch failed (ConnectionError), continuing without crumb
+2026-09-29 01:04:17 | ERROR   | yfinance | Failed to get ticker 'SHW' reason: Failed to perform, curl: (7) CONNECT tunnel failed, response 403. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+2026-09-29 01:04:17 | ERROR   | tsfm_rc.data.panel | SHW UNAVAILABLE: SHW: yfinance download failed: YFTzMissingError: $SHW: possibly delisted; no timezone found
+2026-09-29 01:04:17 | INFO    | tsfm_rc.data.panel | panel: 0 tickers, 0 calendar days, raw_hash=4f53cda18c2b
+[data] 0 tickers loaded from yfinance; 26 unavailable; 0 cleaning events; raw_hash=4f53cda18c2b panel_hash=44136fa355b3
+[data] no data available; stopping. Run `make fetch-data` (needs network).
+make: *** [Makefile:63: reproduce] Error 1

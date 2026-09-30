@@ -7,7 +7,7 @@ CONFIG  ?= configs/default.yaml
 
 .PHONY: help install install-tsfm install-all test test-fast test-notebooks lint format \
         validate fixtures smoke fetch-data run report dashboard reproduce reproduce-fixtures \
-        doctor flashcards lessons clean
+        doctor flashcards lessons publish-results site site-test clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -71,8 +71,19 @@ doctor:  ## Check environment, data cache and model availability (ONLINE=1 also 
 flashcards:  ## Export all lesson flashcards to an Anki-importable CSV
 	$(RUN) tsfm-rc flashcards
 
-lessons:  ## Rebuild lesson notebooks from their .py sources
+lessons:  ## Regenerate lessons/ (notebooks, checkers, flashcards), site/content/doctor_fixes.json and lesson figures
 	$(RUN) python lessons/_tools/build_notebooks.py
+	$(RUN) python -c "from tsfm_rc.pipeline.doctor import write_fix_catalog; print('wrote', write_fix_catalog())"
+	$(RUN) python -c "from tsfm_rc.learn import write_predict_figures; print('wrote', *write_predict_figures())"
+
+publish-results:  ## Export stored statistics to versioned JSON for the website (then commit + push)
+	$(RUN) tsfm-rc publish-results
+
+site:  ## Build the website into site/dist (needs Node 22 + npm)
+	cd site && npm ci && npm run build
+
+site-test:  ## Website lint, unit tests and browser tests
+	cd site && npm run lint && npm test && npm run e2e
 
 clean:  ## Remove caches and results (NOT data/raw, NOT committed fixtures)
 	rm -rf .pytest_cache .ruff_cache results/*/tmp

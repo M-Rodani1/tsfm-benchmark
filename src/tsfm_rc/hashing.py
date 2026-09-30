@@ -55,3 +55,21 @@ def sha256_frame(df: pd.DataFrame | pd.Series) -> str:
     h.update(canonical_json([str(t) for t in df.dtypes]).encode())
     h.update(pd.util.hash_pandas_object(df, index=True).values.tobytes())
     return h.hexdigest()
+
+
+def column_fingerprints(df: pd.DataFrame) -> dict[str, Any]:
+    """Per-column content hashes (values in row order + dtype) and the row count.
+
+    Two tables with equal fingerprints for a column have identical values in every cell of
+    that column (up to SHA-256 collisions). Used to show that secondary tables are unchanged
+    by amendment A4 (tests/test_a4_primary.py): columns *added* later are allowed, existing
+    ones must match exactly.
+    """
+    cols = {}
+    for c in df.columns:
+        s = df[c].reset_index(drop=True)
+        h = hashlib.sha256()
+        h.update(str(s.dtype).encode())
+        h.update(pd.util.hash_pandas_object(s, index=False).values.tobytes())
+        cols[str(c)] = h.hexdigest()
+    return {"n_rows": int(len(df)), "columns": cols}

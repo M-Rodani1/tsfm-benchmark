@@ -198,6 +198,8 @@ made the smoke run 4× slower). Every task derives its own seed from the run see
 keys, so results do not depend on scheduling. Results are reproducible to floating-point
 tolerance, not necessarily bit-for-bit, across machines, BLAS builds and thread counts
 (summation order changes the last digits); the tests compare with `rtol = 1e-5`.
+*Update (Audit-01, D-054):* on x86-64 the CLI now pins OpenBLAS's kernels, which makes the
+committed artifacts reproducible bit for bit on other x86-64 machines.
 
 ### D-026 — Engine rules for individual assets (Build 03)
 One origin schedule is built on the union trading calendar. For each asset an origin is
@@ -300,3 +302,526 @@ under the same target). The DM/MCS matrix uses a diverging blue–grey–red sca
 of relative loss with ★ (Holm-significant) and ● (in MCS) as secondary encodings, plus a
 table view. Light and dark themes are separately specified token sets; `#dark` / `#light`
 in the URL forces one.
+
+### D-039 — Test for the primary family at stride 1: Kiefer–Vogelsang fixed-b (Audit-01, amendment A4)
+**Question.** At stride 1, consecutive h-day targets overlap by h − 1 days. Which variance rule
+keeps a two-sided 5% DM-type test closest to its nominal size for the sample sizes of the
+clean windows (T ≈ 100–540)?
+**Design** (`src/tsfm_rc/eval/size_study.py`; re-run by
+`tests/test_stats.py::test_a4_size_grid_stride1`).
+- *Grid and replications:* T ∈ {100, 250, 450} origins one trading day apart,
+  h ∈ {1, 5, 20}, 5,000 replications per cell, seed 20260928. The Monte Carlo standard error
+  at 5% is ≈ 0.003.
+- *Null processes:* d_t = sum of h daily Gaussian AR(1) contributions with φ ∈ {0, 0.3, 0.6},
+  and `garch_sq`, a difference of squared h-day error sums sharing one GARCH(1,1) volatility
+  (a heavy-tailed, heteroskedastic MSE differential).
+- *Candidates:*
+  1. rectangular kernel, lag h − 1, HLN factor, t_{T−1}, falling back to Bartlett when the
+     estimate is non-positive;
+  2. Bartlett, lag max(h − 1, ⌊4(T/100)^{2/9}⌋), HLN, t_{T−1};
+  3. Kiefer–Vogelsang (2002) fixed-b: Bartlett with bandwidth T, no HLN, p-values from the
+     exact limiting distribution (`src/tsfm_rc/eval/fixedb.py`);
+  4. the Bartlett variance of (2) with fixed-b critical values for its own b = (L + 1)/T,
+     simulated under i.i.d. Gaussian data at the same T.
+- *Selection rule,* stated before the documented run: the smallest worst-case
+  |size − 0.05| over all 36 cells, ties broken by the mean |size − 0.05|. An exploratory run
+  with 2,000 replications and another seed gave the same ranking.
+
+**Result: candidate 3, KV fixed-b.** Worst-case error 0.072, mean 0.014, sizes 0.036–0.122.
+
+| test | worst-case size error | mean size error | size range |
+|---|---|---|---|
+| KV fixed-b | 0.072 | 0.014 | 0.036–0.122 |
+| Bartlett + fixed-b critical values | 0.109 | 0.050 | 0.045–0.159 |
+| Bartlett | 0.118 | 0.055 | 0.050–0.168 |
+| rectangular | 0.281 | 0.053 | 0.046–0.331 |
+
+The rectangular rule fails at h = 1 because its lag is then 0 and ignores any persistence.
+Full table (rejection rates at nominal 5%):
+
+| DGP | T | h | rectangular, lag h−1 (+HLN) | (non-positive share) | Bartlett, lag max(h−1, NW) (+HLN) | **KV fixed-b, b = 1** | Bartlett + fixed-b c.v. |
+|---|---|---|---|---|---|---|---|
+| ar0 | 100 | 1 | 0.051 | 0.000 | 0.061 | **0.051** | 0.045 |
+| ar0 | 100 | 5 | 0.064 | 0.000 | 0.110 | **0.060** | 0.105 |
+| ar0 | 100 | 20 | 0.152 | 0.005 | 0.159 | **0.114** | 0.150 |
+| ar0 | 250 | 1 | 0.053 | 0.000 | 0.056 | **0.048** | 0.052 |
+| ar0 | 250 | 5 | 0.057 | 0.000 | 0.112 | **0.056** | 0.113 |
+| ar0 | 250 | 20 | 0.088 | 0.000 | 0.127 | **0.074** | 0.120 |
+| ar0 | 450 | 1 | 0.051 | 0.000 | 0.056 | **0.057** | 0.052 |
+| ar0 | 450 | 5 | 0.052 | 0.000 | 0.096 | **0.051** | 0.094 |
+| ar0 | 450 | 20 | 0.068 | 0.000 | 0.118 | **0.062** | 0.114 |
+| ar0.3 | 100 | 1 | 0.152 | 0.000 | 0.086 | **0.057** | 0.069 |
+| ar0.3 | 100 | 5 | 0.068 | 0.000 | 0.125 | **0.064** | 0.118 |
+| ar0.3 | 100 | 20 | 0.144 | 0.007 | 0.148 | **0.111** | 0.139 |
+| ar0.3 | 250 | 1 | 0.144 | 0.000 | 0.068 | **0.049** | 0.064 |
+| ar0.3 | 250 | 5 | 0.063 | 0.000 | 0.122 | **0.056** | 0.122 |
+| ar0.3 | 250 | 20 | 0.089 | 0.000 | 0.131 | **0.075** | 0.125 |
+| ar0.3 | 450 | 1 | 0.143 | 0.000 | 0.064 | **0.046** | 0.061 |
+| ar0.3 | 450 | 5 | 0.059 | 0.000 | 0.109 | **0.058** | 0.108 |
+| ar0.3 | 450 | 20 | 0.070 | 0.000 | 0.120 | **0.061** | 0.115 |
+| ar0.6 | 100 | 1 | 0.331 | 0.000 | 0.139 | **0.064** | 0.118 |
+| ar0.6 | 100 | 5 | 0.092 | 0.000 | 0.166 | **0.068** | 0.159 |
+| ar0.6 | 100 | 20 | 0.158 | 0.006 | 0.168 | **0.122** | 0.156 |
+| ar0.6 | 250 | 1 | 0.328 | 0.000 | 0.123 | **0.056** | 0.117 |
+| ar0.6 | 250 | 5 | 0.079 | 0.000 | 0.153 | **0.054** | 0.153 |
+| ar0.6 | 250 | 20 | 0.085 | 0.000 | 0.130 | **0.079** | 0.124 |
+| ar0.6 | 450 | 1 | 0.321 | 0.000 | 0.112 | **0.060** | 0.109 |
+| ar0.6 | 450 | 5 | 0.081 | 0.000 | 0.135 | **0.056** | 0.134 |
+| ar0.6 | 450 | 20 | 0.076 | 0.000 | 0.126 | **0.063** | 0.120 |
+| garch_sq | 100 | 1 | 0.052 | 0.000 | 0.061 | **0.040** | 0.048 |
+| garch_sq | 100 | 5 | 0.055 | 0.000 | 0.077 | **0.042** | 0.071 |
+| garch_sq | 100 | 20 | 0.122 | 0.029 | 0.079 | **0.060** | 0.073 |
+| garch_sq | 250 | 1 | 0.051 | 0.000 | 0.054 | **0.040** | 0.052 |
+| garch_sq | 250 | 5 | 0.059 | 0.000 | 0.090 | **0.044** | 0.090 |
+| garch_sq | 250 | 20 | 0.072 | 0.003 | 0.081 | **0.043** | 0.075 |
+| garch_sq | 450 | 1 | 0.049 | 0.000 | 0.050 | **0.038** | 0.048 |
+| garch_sq | 450 | 5 | 0.046 | 0.000 | 0.074 | **0.036** | 0.072 |
+| garch_sq | 450 | 20 | 0.060 | 0.000 | 0.086 | **0.048** | 0.080 |
+
+**Power (information, not a selection criterion).** At a mean shift where an infeasible
+z-test with the true long-run variance has 80% power (AR(0) and AR(0.3), same grid,
+3,000 replications), KV rejected 0.60–0.72 and the other three 0.79–0.91. Part of their
+extra rejections is their size distortion. This is the known cost of b = 1. It is accepted
+because a wrong-size confirmatory test is worse than a less powerful one, and because stride
+1 gives about five times more origins than the stride-5 design, so power overall still
+rises.
+
+**Non-positive variance.** The KV variance equals 2T⁻²ΣS_t², a sum of squares. It is zero
+only if every d_t is equal; the test is then undefined, reported with p = NaN and flagged
+`zero_variance` (never replaced by another rule).
+
+**Residual problem.** At T = 100 and h = 20 the chosen test still rejects up to 12.2%.
+Every primary row reports the worst simulated size at the nearest simulated T not above its
+own T (`sim_size_max`), and rows with T < 100 stay flagged "small sample".
+
+**Scope.** The stride-5 secondary tests keep the A2 rule, so their tables are unchanged.
+
+### D-040 — Re-fit intervals in the stride-1 primary pass (Audit-01, A4)
+PREREGISTRATION §4 gives re-fit intervals "in origins" with their intent in brackets (GARCH
+≈ monthly, LightGBM ≈ yearly). At stride 1, "every 4 origins" would re-fit GARCH every 4
+trading days: five times more often than in the main pass, which is a different model. The
+primary pass therefore keeps the same interval in trading days:
+`refit_every(name, cfg, stride) = round(refit_every[name] × evaluation.stride / stride)`,
+giving GARCH/GJR every 20 origins and LightGBM every 250 at stride 1. Models without an entry
+re-fit at every origin in every pass, because "every origin" means "always use the latest
+data", not a fixed number of days. Tested in `tests/test_a4_primary.py`.
+
+### D-041 — How the primary pass is organised (Audit-01, A4)
+The stride-1 forecasts are a **separate pass with separate artifacts**:
+`forecasts_baselines_primary.parquet`, `forecasts_tsfm_primary.parquet` and
+`stats/losses_primary.parquet`. They are not merged into the stride-5 tables.
+
+*Why separate.* Inserting extra origins into the main walk-forward loop would shift every
+origin-counted re-fit and change the stride-5 forecasts, so the secondary tables would move.
+Keeping the passes apart guarantees the secondary tables are unchanged.
+
+*Which baselines.* The primary pass runs only what the stride-1 analyses need: each target's
+reference model and its placebo model, expanding window.
+
+*Where the baselines start.* From the earliest possible clean start (earliest documented
+release + 30 days). The A1 effective release can only be later, so every model's actual
+window is covered without knowing the weight dates before the baseline stage.
+
+*Where each TSFM starts.* From its own clean start, computed after its weights are resolved.
+Origins shared with the stride-5 grid hit the output cache.
+
+*Size.* `losses_primary.parquet` of `default_fixtures` is ignored by git (like `losses.parquet`,
+re-derivable).
+
+### D-042 — Proving the secondary tables are unchanged (Audit-01, A4)
+`tests/data/pre_a4_table_fingerprints.json` holds per-column SHA-256 fingerprints (row order,
+dtype, every cell via `pandas.util.hash_pandas_object`) of every secondary table committed
+before A4 (Build 08 artifacts, commit `1433711`). This covers the smoke run's 12 tables and
+the `default_fixtures` run's 11; its `losses.parquet` was never committed.
+`tests/test_a4_primary.py::test_secondary_tables_unchanged_by_a4` recomputes the fingerprints
+of the committed tables and requires the same row count and an identical hash for every
+pre-A4 column. Columns added later (for example by Audit-01 fix 3) are allowed. A fingerprint
+test was chosen over storing copies of the tables because CI checks out a shallow clone
+without history. The same comparison was also done directly with
+`pandas.testing.assert_frame_equal` against the Build 08 files when the artifacts were
+regenerated (BUILD-REPORT §10).
+
+### D-043 — The website: a static SPA on Netlify (Audit-01 fix 2)
+**What.** `site/` is a Vite + React + TypeScript single-page app, deployed as static files
+(`netlify.toml`, `docs/DEPLOY.md`). Pages: Home ("Continue"), Lessons, Results, Review, Notes
+& log, Research status, Progress & sync.
+**Why.**
+- *No server of our own.* The site needs no server: Python runs in the browser and progress
+  goes to Supabase directly under row-level security.
+- *Notebooks and dashboard kept.* The Jupyter track and `reports/dashboard/index.html`
+  remain as offline alternatives.
+- *Plain React.* No component framework: a small audited dependency set (React, React
+  Router, supabase-js, idb, markdown-it; Pyodide is loaded at runtime).
+
+### D-044 — Python in the browser: Pyodide, checked at build time (Audit-01 fix 2)
+**Loading.** Pyodide 314.0.7 (Python 3.14) runs in a Web Worker so the page never freezes.
+- *Self-hosted core, CDN packages.* The core runtime is served from the site
+  (`/pyodide/v314.0.7/`, copied from the pinned npm package). The scientific packages come
+  from the matching jsDelivr path (`packageBaseUrl`), integrity-checked against the lock file.
+  The site loads NumPy, pandas, SciPy, matplotlib, pydantic, PyYAML and micropip.
+
+**Build-time check** (`site/scripts/pyodide.mjs`). Each of those packages must be in that
+release's `pyodide-lock.json`. Every import in lesson code, starters, solutions and checkers
+must resolve to Pyodide's own standard library (read from `python_stdlib.zip`), a locked
+package, `tsfm_rc` or `checker`. Otherwise the build fails.
+
+**The package.** A pure-Python wheel of `tsfm_rc` is built from `src/` at build time (no
+dependencies declared) and installed with `micropip`. Heavy imports (`arch`, `lightgbm`,
+`torch`, Hugging Face) were already lazy.
+
+**Where the browser lacks something:**
+- *GARCH fitting (lesson 04)* uses `tsfm_rc.models.garch_np`, a NumPy/SciPy re-implementation
+  of the `arch` estimator. `tests/test_garch_np.py` shows the same variance path and
+  likelihood (to 1e-10) and the same fitted parameters on every fixture.
+- *Stored results (lessons 00, 09, 10)* are read through `tsfm_rc.learn.stats_table`: the
+  Parquet file locally, the published JSON in the browser (exact floats; `tests/test_publish.py`).
+- *Foundation models (lesson 05)* cannot run in a browser; the lesson says so and points to
+  the Results page.
+- *The GK simulation (lesson 02)* uses fewer paths and steps, stated on the page.
+
+**Verification.**
+- *Locally and in CI:* every lesson runs in a browser-like CPython sandbox (only the mounted
+  files; `arch`/`lightgbm`/`pyarrow`/`torch` blocked).
+- *In CI:* every lesson also runs under Python 3.14 with Pyodide's exact package versions, and
+  in real Chromium with Pyodide (Playwright; `REQUIRE_PYODIDE=1`).
+
+### D-045 — One source for the lessons (Audit-01 fix 2)
+**Format.** The 11 lessons live in `site/content/lessons/` as Markdown with a small block
+syntax (`python`, `predict`, `checkpoint`), plus YAML and Python files for hints, checkers,
+solutions, flashcards and error explanations (`site/content/README.md`).
+
+**Generated notebooks.** `lessons/` (notebooks, `lesson.py`, READMEs, checkers, flashcards) is
+generated from them by `make lessons`; the tests fail if it is stale.
+
+**Why one source.** Two hand-maintained copies would drift, and an auditor can edit one place.
+
+**Rules enforced by both parsers:**
+- a step is at most 150 words of prose between interactive elements, and has something to do;
+- 5–10 flashcards and 2–4 tiered hints per lesson;
+- a 45–90 minute estimate, and valid prerequisites and `next` links.
+
+### D-046 — Progress storage: local-first, Supabase for one user (Audit-01 fix 2)
+**Local first.** Every change goes to IndexedDB immediately (`site/src/lib/db.ts`) and is
+synced to Supabase when configured and signed in. The site works offline and with no
+Supabase at all (local-only banner).
+
+**Tables** (`site/supabase/migrations/`), all with row-level security:
+lesson/step progress (including the last position), exercise attempts (code, pass/fail,
+hints, solution viewed, time), drafts, notes, flashcard states, review history and the
+session log.
+
+**Access.**
+- *Single user.* Magic-link email login; sign-ups disabled after the first login
+  (`docs/DEPLOY.md`), with an optional `VITE_ALLOWED_EMAIL` check in the form.
+- *Keys.* Only the public anon key is ever in the frontend, and the build refuses a secret
+  key.
+- *Backup.* Export/import of everything as one JSON file.
+
+### D-047 — Sync conflict rule: last-write-wins per record (Audit-01 fix 2)
+**Rule.** Each record carries the client time of its last change (`updated_at`). The newer
+record wins.
+- *Server side:* the trigger `tsfm_lww()` ignores an update older than the stored row, so a
+  stale device cannot overwrite a newer change.
+- *Pull:* the client pulls rows changed since its cursor (`server_updated_at`, with a 5 s
+  overlap) and keeps a newer dirty local copy.
+- *Append-only tables* (attempts, review history) have unique ids and never conflict.
+- *Deletions* are tombstones.
+
+**Limitation.** Two devices editing the *same* record offline keep only the later edit; for
+flashcards the full review history is still kept, only the card state is last-write-wins.
+Clock skew between devices can reorder near-simultaneous edits. Both are acceptable for one
+learner.
+
+**Tests.** `site/tests/sync.test.ts` (two simulated devices) and `site/tests/rls.test.ts`
+(the trigger on real Postgres).
+
+### D-048 — Spaced repetition: SM-2 (Audit-01 fix 2)
+**Choice.** SM-2 (Wozniak 1990) rather than FSRS. It is about 40 auditable lines, is
+deterministic, and needs no parameters fitted to a long review history, which one learner
+with ~80 cards will not have. Its behaviour is easy to explain: correct answers stretch the
+interval by the ease factor, lapses reset it.
+
+**Buttons.** Again / Hard / Good / Easy map to quality 1 / 3 / 4 / 5.
+
+**Cards.** A lesson's cards join the queue (due the same day) when every step of the lesson
+is done. The Anki CSV export remains as a secondary option.
+
+**Tests.** `site/tests/srs.test.ts` checks the 1, 6, ⌈6·EF⌉ sequence, the ease formula and
+floor, lapses, and that the Anki CSV contains every card in exactly the `make flashcards`
+format.
+
+### D-049 — Publishing results to the site (Audit-01 fix 2)
+**Command.** `make publish-results` (`src/tsfm_rc/pipeline/publish.py`) exports each run's
+stored statistics to `site/public/data/results/<run>/<version>/`:
+- the dashboard payload, reusing `reports/dashboard.py`'s selection;
+- the lesson tables, with exact round-trip floats;
+- a copy of `RESULTS.md`;
+- an index with provenance (config hash, data hash, commit), model status, a history, and a
+  `SYNTHETIC — not research results` label for fixture runs.
+
+**Versions.** The version is a content hash, so republishing unchanged results changes
+nothing.
+
+**What is never published.** Row-level forecasts, losses and raw prices; the site computes
+no statistics.
+
+**Home-page task.** Until a real-data run is published, the home page shows the pending
+terminal task (`make reproduce`, then `make publish-results` and push). The task is
+generated from the published index at build time (`site/scripts/status.mjs`).
+
+### D-050 — Offline support and security headers (Audit-01 fix 2)
+**Offline.** A small service worker (`site/public/sw.js`) caches the app shell. It caches
+versioned files cache-first (build assets, Pyodide core and packages, the wheel, published
+result versions) and fetches everything else network-first. After one visit the site, and
+then Python, work offline.
+
+**Headers.** `netlify.toml` sets a strict Content-Security-Policy: scripts only from the site
+plus `wasm-unsafe-eval`, and connections only to the site, Supabase and the Pyodide CDN. It
+also sets HSTS, `nosniff`, `X-Frame-Options: DENY`, a restrictive Permissions-Policy and
+COOP. `vite preview` reads the same headers, so every browser test runs under the production
+policy.
+
+### D-051 — How the site is tested (Audit-01 fix 2)
+**Unit tests** (Vitest): the scheduler, the sync logic, the IndexedDB store with
+export/import, lesson progress, prediction checking and error explanations, the build
+scripts (content rules, status parsing, headers, secret-key guard, wheel, Pyodide import
+check), and the migrations on a real Postgres (PGlite) proving RLS on every table.
+
+**Browser tests** (Playwright, production build, production headers):
+- completing a step;
+- a failing then passing exercise with hints;
+- progress surviving a reload, and autosave surviving a closed tab;
+- reviewing due flashcards;
+- export then import;
+- the Results page, prerequisite overrides, and offline use.
+
+**Every lesson** (all cells, starter fails, solution passes) runs in real Pyodide. Those
+tests need jsDelivr; they are skipped only where it is unreachable (this build container)
+and required in CI.
+
+### D-052 — Non-finite loss differentials are counted, not silently dropped (Audit-01 fix 3)
+`dm_test` still drops NaN/inf values before computing autocovariances, which joins the
+observations on either side of a gap as if they were adjacent. It now appends
+`dropped_nonfinite=N` to `DMResult.flag`, combined with any other flag, e.g.
+`zero_variance;dropped_nonfinite=1`. The study's own callers align pairs on origins first,
+so their series have no gaps and no stored flag changed. A caller that passes a gappy series
+now sees it in every table that carries the flag. Tested in
+`tests/test_stats.py::test_dm_reports_dropped_nonfinite_values`.
+
+### D-053 — Oracle ratios in the synthetic control carry a bootstrap CI (Audit-01 fix 3)
+The synthetic-control table reported ratios like `hist_mean` 0.996× the oracle's loss
+without uncertainty, which invites reading "better than optimal". Each ratio now has a 95%
+stationary-bootstrap CI (`ratio_to_oracle_lo`/`_hi`). The CI resamples origins of the
+per-origin mean losses on paired (series, origin) rows, B = `stats.n_bootstrap`, with the
+block length of section 7, and `ratio_ci_covers_1` records whether it contains 1.
+
+The report words a ratio below 1 whose CI covers 1 as "below 1 only by sampling noise" (or
+"indistinguishable from the oracle" when it rounds to 1.000). The figure draws the CIs.
+Existing columns are unchanged.
+
+### D-054 — OpenBLAS kernels pinned for bit-for-bit reproducibility (Audit-01 fix 3)
+**What happened.** Regenerating the fixture artifacts for fix 3 on a new build host changed
+the secondary tables, although no forecasting code had changed. The fingerprint test of A4
+(D-042) failed.
+- *Cause.* The OpenBLAS libraries bundled with the NumPy and SciPy wheels (DYNAMIC_ARCH
+  builds) choose a CPU-specific kernel when they load. `arch`'s GARCH optimiser then stops at
+  slightly different points within its tolerance.
+- *Which kernel made the committed files.* Every committed artifact (Build 08 and fix 1) was
+  reproduced exactly with `OPENBLAS_CORETYPE=Prescott`, OpenBLAS's generic x86-64 kernel
+  (its fallback when it cannot use AVX). Every forecast table and every stored statistic
+  matched, cell by cell. The new host's AVX-512 kernel (and the Haswell, Sandy Bridge and Zen
+  kernels) did not.
+
+**Size of the effect,** on the smoke run, native AVX-512 kernel against the committed
+Prescott results, rows matched on their keys:
+- *Forecasts:* GARCH-family forecasts differ by up to 0.036 (at most 1.6% relative, median
+  6 × 10⁻⁶). Every other model differs by at most 3 × 10⁻¹³.
+- *DM tests:* p-values move by at most 0.011 and Holm p-values by at most 0.022. No 5%
+  decision changes.
+- *MCS:* one p-value moves from 0.255 to 1.000, because the best of two near-tied GARCH
+  variants swaps. No model enters or leaves a confidence set.
+
+**Decision.** `tsfm-rc` sets `OPENBLAS_CORETYPE=Prescott` on x86-64 before NumPy loads,
+unless the variable is already set (`src/tsfm_rc/cli.py`). Every `make` target and CI go
+through it.
+- *Recorded.* Provenance records the kernel (`openblas_coretype`).
+- *Tested.* `tests/test_utils.py::test_cli_pins_openblas_kernel_before_numpy_loads`.
+- *Cost.* Negligible: the pipeline's BLAS work is small least-squares problems. The
+  foundation models use PyTorch's own libraries, which are unaffected.
+
+**Scope.**
+- *Not a change to the study.* No model, statistic or pre-registered choice changes. The pin
+  only fixes which of several equally valid floating-point paths is taken.
+- *Other hardware.* On ARM machines (e.g. Apple Silicon) the variable is not set. Results
+  there agree with the committed ones only to the tolerance above.
+- *Other wheels.* Different NumPy/SciPy wheels can still differ; the versions are pinned in
+  `uv.lock`.
+
+**Consequence for the analysis.** Near-ties between GARCH variants (and their MCS p-values)
+are machine-sensitive at this level. A difference that small is not evidence either way.
+
+
+### D-055 — The guided journey: one route, one next action (guided-journey fix)
+**Problem.** The site had lessons, a "continue" card and a terminal-task card, but nothing
+showed the whole route. It did not say in what order to work, how terminal work fits
+alongside the lessons, or what "done" means.
+
+**Single source.** `site/content/journey.yaml` defines eight phases, P0 to P7. Each has a
+goal, why, time, steps and done criteria. A step is a lesson, a terminal task
+(`site/content/tasks/<id>.yaml`) or a site action (tour, Results, review). It is validated at
+build time: every lesson and task appears exactly once, all references resolve, goals are one
+sentence, and text fields are strings.
+
+**Ordering.**
+- *`requires` is a hard dependency only.* P2 needs P1, P5 needs P2, P6 needs P5, and P6–P7
+  need real results. Only such a step shows as *locked*.
+- *Recommendations live in `nextAction()`.* After lesson 00 it points to P1 and then P2
+  right away, because P2 runs for hours unattended. Lessons 01–08 are offered as a secondary
+  link while a laptop step waits, and become the next action while the study runs.
+- *Lessons are never hard-locked.* A locked lesson page stays usable, with a banner.
+
+**Statuses.** The brief lists done, in progress, next, locked and optional. A sixth,
+*upcoming*, was added for a step that is available but not the recommended one. Calling
+lesson 03 "locked" while lesson 01 is next would be false.
+
+**Real results** means a published run named `default` (the pre-registered study) whose data
+source is Yahoo Finance or CSV. That is `publish.py`'s rule for non-synthetic runs: any other
+source is labelled `SYNTHETIC — not research results`. The run must be `default` because
+`smoke_real` is also real data but is not the study. When real results exist, P1, P2 and P5
+are marked done automatically (`auto: real_results`). This is a build-time fact: it changes
+when a push of `site/public/data/results` makes Netlify rebuild.
+
+**How a terminal step is completed,** in order of strength:
+1. auto-detected;
+2. a pasted output that the site checks (D-056);
+3. "I've done this", recorded and shown everywhere as **self-reported**.
+
+The long-running study has a separate *started* state, set by its start button or by pasted
+output that shows it running. It drives the "Study running on your laptop?" card.
+
+**Tests.** `site/tests/journey.test.ts` checks `nextAction()` and the statuses for a fresh
+user, mid-lesson, after lesson 00, with P2 running, with results published, when pushed but
+not yet rebuilt, and when everything is done. It also checks that exactly one step is ever
+*next*, the breadcrumbs, and the YAML validation.
+
+### D-056 — Checking pasted terminal output (guided-journey fix)
+**Where the markers come from.** `site/src/lib/cliparse.ts` recognises output by strings
+copied from the code that prints them:
+- `doctor.py`: check lines, `→` fixes and the three summary lines;
+- `cli.py`: fetch statuses, `[validate]`, `[report]`, `[dashboard]`, `[publish]`;
+- `pipeline/run.py`: `[data]`, `[tsfm] … AVAILABLE|UNAVAILABLE`, `[evaluate]`;
+- GNU make and shell messages.
+
+`tests/test_doctor_flashcards.py::test_site_output_markers_match_the_cli` fails if the CLI's
+wording drifts away from the parser.
+
+**What counts as success:**
+- *Phase 1:* the doctor ran to the end with no ✗, and no ! except the real-data cache, stored
+  results, lessons and uv, which are empty or optional before Phase 2.
+- *Phase 2:* a finished pipeline run with `[evaluate]`, `[report] …/reports/default/…` and
+  `[dashboard]`. A finished run of another config is rejected by name. UNAVAILABLE models are
+  accepted but flagged.
+- *Phase 5:* the export alone is only progress; the step completes when the site shows the
+  real run.
+- *Phase 7:* pytest's summary line, with some tests passed and none failed.
+
+A Python traceback is explained with the lesson runner's own `errors.yaml`.
+
+**Privacy.** Only a one-line summary of the check is stored (for example "24 checks:
+23 ✓, 1 !, 0 ✗"), never the pasted text, which can contain paths and user names.
+
+**Evidence.** The tests use output captured by running the commands on 2026-09-29
+(`site/tests/fixtures/cli/README.md`).
+- *Staged:* the Phase 1 success case ran the real doctor against a staged weights cache,
+  because Hugging Face is unreachable from the build container.
+- *Derived:* the real study and a real publish cannot run there, so those cases are derived
+  in the tests from real captures by changing only the run name or label. The tests say so.
+
+### D-057 — Journey state storage (guided-journey fix)
+**Table.** A new table, `journey_state`, holds one row per step that has state
+(`step_key`, `status` started/done, `method` output/self-reported/site/auto, a short
+`detail`, `started_at`, `done_at`). It is local-first in IndexedDB and synced with the same
+last-write-wins rule as all progress (D-047). "Reset this step" writes a tombstone.
+
+**Security.** It is added to the one migration file, with RLS identical to the other tables
+(the same loop creates its policies and grants). `site/tests/rls.test.ts` checks four
+things:
+- its four policies and grants equal those of `lesson_progress`;
+- users are isolated and the anonymous role has no access;
+- re-running the file on a project with data is safe;
+- the old seven-table schema upgrades to the new one, keeping its data.
+
+Export and import include the table. Older export files without it still import.
+
+**Browser database versions (added after a defect).** The first release of the journey broke
+the site for every browser that had visited it before: a blank page, with "NotFoundError:
+One of the specified object stores was not found".
+- *Cause.* The browser database `tsfm-rc` was opened with a hard-coded version 1. An existing
+  database therefore never ran its upgrade, and the new `journey_state` store did not exist.
+- *Fix.* `openStore()` (`site/src/lib/db.ts`) opens the database and, if any store is
+  missing, reopens it one version higher so the upgrade creates it. Existing data is kept.
+  Nothing hard-codes a version any more, so a later table cannot repeat the mistake.
+- *Other tabs.* A tab still running the old site can block the upgrade. The new tab then says
+  "Close the other tabs of this site" and starts as soon as they are closed. A tab told that
+  a newer version is upgrading closes its connection and asks to be reloaded.
+- *Never blank.* A failure while starting now shows a message instead of an empty page.
+- *Tests.* Both a unit test and a browser test recreate the old database, with data, before
+  the site loads. Both fail on the released code and pass now. A second browser test covers
+  the blocking tab.
+
+### D-058 — Journey UI choices (guided-journey fix)
+- **The tour** opens automatically only on Home, and only until it is finished or skipped.
+  Deep links into a lesson are never redirected. It can be re-opened from *Tour* in the menu.
+- **Home** shows one "Do this next" card with one button. A lesson is offered as a text link
+  when the next step needs the laptop ("Not at your laptop? …"), because P3–P4 legitimately
+  run in parallel with P2.
+- **"Next step" at the end of lessons** replaces "Next: lesson NN": after lesson 00 the route
+  continues on the laptop, not with lesson 01. When the page is itself the next step, the
+  button points at what finishes it: the open lesson step, or the output check.
+- **The SYNTHETIC banner** with links to phases 2 and 5 is shown on lessons 09 and 10 (both
+  in phases that need real results) and on the Results page. The Phase 6 step "Open the
+  Results page" counts only once a real run is published.
+- **OS tabs** remember the choice in `localStorage` (a per-browser convenience). They default
+  to the visitor's operating system.
+
+### D-059 — The study-console redesign (Direction B)
+- **Appearance only.** The redesign changes how the site looks and how its controls behave. It
+  does not change the research code, the statistics, what a lesson teaches, or the journey
+  logic (`lib/journey.ts` and `nextAction()` are untouched; only their presentation moved).
+  Tokens, type and layout: `site/DESIGN.md`.
+- **Two additions the comps needed**, both derived from the repository and never typed by hand:
+  - `study.json`: `tsfm_rc.pipeline.publish.study_facts`, written by `make publish-results`.
+    It holds the models under test, the weights' release dates and the first clean test day
+    (config + contamination buffer, the same rule as `contamination.windows`).
+  - Lesson 02's chart question (D-060).
+- **How Home knows about the laptop.** The site cannot see your laptop, so the study table
+  labels every stage by its evidence: *Detected* (a real run is published on this site),
+  *Verified from output* (the pasted output passed the check) or *Self-reported*. A study you
+  started is only ever self-reported as running. Stages that share one fact show it once.
+- **Where progress is saved** is said on Home (Today) and Account, and in the top bar. It is no
+  longer a banner on every page. Problems are still shown on every page: a failed sync (with
+  *Try again*), offline, or a failed save.
+- **Predict**: native radios in a fieldset, a separate "Check" button. The first checked answer
+  is stored; "Try again" lets you explore without changing it (it used to be one click to
+  answer, with no way back).
+
+### D-060 — Lesson 02's chart question: how its answer is decided
+The question "Over the next 40 days, volatility will most likely …" is answered from the
+committed fixtures, not by assertion. For every calm-then-shock day of every GARCH series in
+the fixtures:
+- a calm-then-shock day has a calm previous 60 days (max/median ≤ 1.35) and a shock at least
+  1.3 times the calm median;
+- the first such day wins, and the next 40 days are skipped;
+- nothing after the shock day enters the selection;
+- the closest option is the one with the lowest QLIKE (the study's volatility loss) against
+  the latent volatility of the next 40 days.
+
+The answer is the option closest most often, pooled over all series. The chart shows the most
+recent shock of SYN_GARCH_B.
+
+Result: 73 shocks; the slow fade was closest 45 times, snapping back 23, climbing 5. The slow
+fade is also the most frequent in each series on its own, narrowly in SYN_QUIRKS (17 to 16).
+The rule was changed twice before this version, both times after seeing a result (BUILD-REPORT
+§12.4). That is why it now pools every GARCH series and never looks ahead: no choice of series
+or window can decide the answer. `tests/test_lessons.py` recomputes the figure and checks the
+answer, the pooling and the per-series plurality.

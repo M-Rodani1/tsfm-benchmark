@@ -1,8 +1,9 @@
 """Pipeline stages. Each stage reads/writes artifacts under ``results/<config name>/``.
 
     data        -> cleaning_report.csv
-    baselines   -> forecasts_baselines.parquet
-    tsfm        -> forecasts_tsfm.parquet, model_status.json
+    baselines   -> forecasts_baselines.parquet            (main pass, stride 5)
+                   forecasts_baselines_primary.parquet    (A4 primary pass, stride 1)
+    tsfm        -> forecasts_tsfm.parquet, forecasts_tsfm_primary.parquet, model_status.json
     synthetic   -> forecasts_synthetic.parquet, synthetic_meta.json
     evaluate    -> stats/<table>.parquet (every table carries provenance), provenance.json
 
@@ -59,15 +60,32 @@ def stage_baselines(cfg: RunConfig, panel: Panel) -> pd.DataFrame:
     return fc
 
 
+def stage_baselines_primary(cfg: RunConfig, panel: Panel) -> pd.DataFrame:
+    """Amendment A4: reference + placebo baselines on stride-1 origins in the clean windows."""
+    from tsfm_rc.engine.walkforward import run_primary_baselines
+
+    t0 = time.time()
+    fc = run_primary_baselines(panel.daily, panel.calendar, cfg)
+    secs = time.time() - t0
+    path = cfg.run_dir / "forecasts_baselines_primary.parquet"
+    write_parquet_with_provenance(fc, path, run_provenance(cfg, panel, stage="baselines_primary", seconds=round(secs, 1)))
+    print(f"[baselines/primary] {len(fc):,} forecast rows ({fc['origin'].nunique() if len(fc) else 0} stride-"
+          f"{cfg.evaluation.primary_stride} origins) in {secs:.0f}s -> {path}")
+    return fc
+
+
 def stage_tsfms(cfg: RunConfig, panel: Panel):
-    from tsfm_rc.engine.tsfm_runner import load_backends, run_tsfms, write_status
+    from tsfm_rc.engine.tsfm_runner import load_backends, run_tsfms, run_tsfms_primary, write_status
 
     t0 = time.time()
     loaded = load_backends(cfg)
     fc, status = run_tsfms(panel.daily, panel.calendar, cfg, loaded=loaded)
+    fc_primary = run_tsfms_primary(panel.daily, panel.calendar, cfg, (loaded[0], status))
     write_status(status, cfg.run_dir / "model_status.json")
     write_parquet_with_provenance(fc, cfg.run_dir / "forecasts_tsfm.parquet",
                                   run_provenance(cfg, panel, stage="tsfm", model_status=status))
+    write_parquet_with_provenance(fc_primary, cfg.run_dir / "forecasts_tsfm_primary.parquet",
+                                  run_provenance(cfg, panel, stage="tsfm_primary", model_status=status))
     for name, st in status.items():
         msg = st["status"] if st["status"] == "AVAILABLE" else f"UNAVAILABLE: {st['reason'][:160]}"
         print(f"[tsfm] {name}: {msg}")
@@ -94,14 +112,23 @@ def stage_synthetic(cfg: RunConfig, panel: Panel, loaded=None):
     return fc, meta
 
 
+def _concat_stored(run_dir: Path, files: tuple[str, ...]) -> pd.DataFrame:
+    parts = [pd.read_parquet(run_dir / f) for f in files if (run_dir / f).exists()]
+    parts = [p for p in parts if len(p)]
+    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+
+
 def load_stored_forecasts(run_dir: Path) -> tuple[pd.DataFrame, dict, pd.DataFrame | None, dict]:
-    parts = [pd.read_parquet(run_dir / f) for f in ("forecasts_baselines.parquet", "forecasts_tsfm.parquet")
-             if (run_dir / f).exists()]
-    fc = pd.concat([p for p in parts if len(p)], ignore_index=True)
+    fc = _concat_stored(run_dir, ("forecasts_baselines.parquet", "forecasts_tsfm.parquet"))
     status = json.loads((run_dir / "model_status.json").read_text()) if (run_dir / "model_status.json").exists() else {}
     syn = pd.read_parquet(run_dir / "forecasts_synthetic.parquet") if (run_dir / "forecasts_synthetic.parquet").exists() else None
     meta = json.loads((run_dir / "synthetic_meta.json").read_text()) if (run_dir / "synthetic_meta.json").exists() else {}
     return fc, status, syn, meta
+
+
+def load_primary_forecasts(run_dir: Path) -> pd.DataFrame:
+    """Stride-1 clean-window forecasts (amendment A4): primary baselines + primary TSFMs."""
+    return _concat_stored(run_dir, ("forecasts_baselines_primary.parquet", "forecasts_tsfm_primary.parquet"))
 
 
 def stage_evaluate(cfg: RunConfig, panel: Panel) -> dict[str, pd.DataFrame]:
@@ -110,7 +137,8 @@ def stage_evaluate(cfg: RunConfig, panel: Panel) -> dict[str, pd.DataFrame]:
     t0 = time.time()
     run_dir = cfg.run_dir
     fc, status, syn, meta = load_stored_forecasts(run_dir)
-    tables = evaluate(fc, panel.daily, cfg, status, syn, meta.get("kappa", 1.0))
+    fc_primary = load_primary_forecasts(run_dir)
+    tables = evaluate(fc, panel.daily, cfg, status, syn, meta.get("kappa", 1.0), fc_primary=fc_primary)
     prov = run_provenance(cfg, panel, stage="evaluate", model_status=status)
     stats_dir = run_dir / "stats"
     stats_dir.mkdir(parents=True, exist_ok=True)
@@ -128,6 +156,7 @@ def run_all_stages(cfg: RunConfig, *, allow_fetch: bool) -> int:
         print("[data] no data available; stopping. Run `make fetch-data` (needs network).")
         return 1
     stage_baselines(cfg, panel)
+    stage_baselines_primary(cfg, panel)
     _, _, loaded = stage_tsfms(cfg, panel)
     stage_synthetic(cfg, panel, loaded)
     stage_evaluate(cfg, panel)

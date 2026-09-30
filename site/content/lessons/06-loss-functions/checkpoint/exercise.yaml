@@ -1,0 +1,5 @@
+function: my_qlike
+hints:
+  - "Everything depends on the ratio of truth to forecast: compute `ratio = y / f` first."
+  - "The loss is the ratio minus its log minus one; it must be exactly 0 when f = y."
+  - "`return ratio - np.log(ratio) - 1` (keep it y/f, not f/y)."

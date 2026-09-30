@@ -7,6 +7,7 @@
 - q: How do you report a model that could not be evaluated?
   a: Name it, give the reason, and state that no evidence exists either way (absent, not null).
 - q: What must a limitations section of this study mention?
-  a: Survivorship bias, the volatility proxy, contamination uncertainty, regime confounding, small clean windows, amendments.
+  a: Survivorship bias, the volatility proxy, contamination uncertainty, regime confounding, small clean
+    windows, amendments.
 - q: Can you cite a paper you found by search but have not read?
   a: No. Read it first, or leave it out.

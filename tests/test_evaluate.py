@@ -13,9 +13,15 @@ import pytest
 
 from tests.tsfm_helpers import ToyBackend
 from tsfm_rc.config import load_config
+from tsfm_rc.contamination.windows import windows_for_models
 from tsfm_rc.data.panel import load_panel
 from tsfm_rc.engine.tsfm_runner import forecast_with_backend
-from tsfm_rc.engine.walkforward import build_origins, run_baselines
+from tsfm_rc.engine.walkforward import (
+    build_origins,
+    build_primary_origins,
+    run_baselines,
+    run_primary_baselines,
+)
 from tsfm_rc.eval.contamination_test import contamination_delta
 from tsfm_rc.eval.economic import backtest
 from tsfm_rc.eval.evaluate import evaluate
@@ -104,7 +110,13 @@ def e2e():
     status = {"chronos_bolt_tiny": {"status": "AVAILABLE"},
               "timesfm_2p5_200m": {"status": "UNAVAILABLE", "reason": "test"},
               "moirai_1p1_small": {"status": "UNAVAILABLE", "reason": "test"}}
-    out = evaluate(pd.concat([base, toy], ignore_index=True), panel.daily, cfg, status)
+    # amendment A4: stride-1 primary pass (reference + placebo baselines, toy TSFM from its clean start)
+    base_p = run_primary_baselines(panel.daily, panel.calendar, cfg, n_jobs=4)
+    clean_start = windows_for_models(cfg, status)["chronos_bolt_tiny"].clean_start
+    toy_p = forecast_with_backend(ToyBackend("chronos_bolt_tiny"), spec, panel.daily,
+                                  build_primary_origins(panel.calendar, cfg, start=clean_start), cfg, cache=None)
+    fc_primary = pd.concat([base_p, toy_p], ignore_index=True)
+    out = evaluate(pd.concat([base, toy], ignore_index=True), panel.daily, cfg, status, fc_primary=fc_primary)
     return cfg, out
 
 
@@ -142,3 +154,81 @@ def test_tables_consistent(e2e):
     prob = out["probabilistic"]
     assert {"pinball_q10", "pinball_q50", "pinball_q90", "crps_n"} <= set(prob.columns)
     assert (prob["pinball_q50"] > 0).all()
+
+
+# ------------------------------------------------------------------ amendment A4
+def test_primary_family_uses_stride1_clean_window_origins(e2e):
+    """dm_primary is built from the stride-1 primary pass only, inside the model's clean window."""
+    cfg, out = e2e
+    LP = out["losses_primary"]
+    p = out["dm_primary"]
+    avail = p[p["status"] == "AVAILABLE"]
+    assert (avail["stride"] == 1).all() and (avail["method"] == "kv_b1").all()
+    assert (avail["h_eff"] == avail["horizon"]).all()  # stride 1: h_eff = h
+    cal = pd.DatetimeIndex(sorted(LP["origin"].unique()))
+    for r in avail.itertuples(index=False):
+        S = LP[(LP["target"] == r.target) & (LP["horizon"] == r.horizon) & (LP["win_chronos_bolt_tiny"] == "clean")]
+        pp = paired_pooled(S, r.model, r.reference, f"{r.loss}_n")
+        assert r.T == len(pp) and r.T > 100
+        assert r.start == pp.index.min() and r.start >= pd.Timestamp("2024-12-26")
+        # consecutive trading days: every origin in the window is used, none skipped
+        pos = cal.get_indexer(pp.index)
+        assert (np.diff(pos) == 1).all()
+        # far more origins than the stride-20 main pass has in the same window
+        main_clean = out["losses"][(out["losses"]["target"] == r.target) & (out["losses"]["horizon"] == r.horizon)
+                                   & (out["losses"]["model"] == r.model) & (out["losses"]["win_chronos_bolt_tiny"] == "clean")]
+        assert r.T > 5 * main_clean["origin"].nunique()
+
+
+def test_contamination_clean_side_from_primary_pass(e2e):
+    cfg, out = e2e
+    c = out["contamination"]
+    L, LP = out["losses"], out["losses_primary"]
+    for r in c[(c["status"] == "AVAILABLE")].itertuples(index=False):
+        S = LP[(LP["target"] == r.target) & (LP["horizon"] == r.horizon) & (LP[f"win_{r.windows_of}"] == "clean")]
+        Sm = L[(L["target"] == r.target) & (L["horizon"] == r.horizon) & (L["window"] == "expanding")
+               & (L[f"win_{r.windows_of}"] == "seen")]
+        loss = {"returns": "mse_n", "rv": "qlike_n", "volume": "mse_n"}[r.target]
+        assert r.T_clean == len(paired_pooled(S, r.model, r.reference, loss))
+        assert r.T_seen == len(paired_pooled(Sm, r.model, r.reference, loss))
+
+
+def test_primary_rows_without_primary_pass_are_flagged():
+    from tsfm_rc.eval.evaluate import dm_primary
+
+    cfg = load_config("configs/smoke.yaml")
+    status = {s.name: {"status": "AVAILABLE"} for s in cfg.models.tsfms}
+    p = dm_primary(None, cfg, status)
+    assert (p["flag"] == "no_primary_pass_forecasts").all() and p["p_value"].isna().all()
+
+
+# ------------------------------------------------------------------ Audit-01 fix 3: oracle-ratio CIs
+def _synthetic_forecasts(scale_b: float, n_series: int = 3, n_origins: int = 300, seed: int = 0) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    rows = []
+    origins = pd.bdate_range("2020-01-01", periods=n_origins)
+    for s in range(n_series):
+        truth = rng.gamma(4, 0.25, n_origins)
+        y = truth * rng.gamma(4, 0.25, n_origins)
+        for model, pred in [("oracle", truth), ("good", truth * rng.gamma(400, 1 / 400, n_origins)), ("biased", truth * scale_b)]:
+            for o, yt, p, lat in zip(origins, y, pred, truth, strict=True):
+                rows.append({"ticker": f"S{s}", "target": "rv", "horizon": 1, "model": model, "origin": o,
+                             "y_true": yt, "y_pred": p, "y_latent": lat})
+    return pd.DataFrame(rows)
+
+
+def test_synthetic_oracle_ratio_has_bootstrap_ci_and_honest_wording():
+    from tsfm_rc.eval.evaluate import synthetic_table
+    from tsfm_rc.reports.results_md import _oracle_ratio_text
+
+    cfg = load_config("configs/smoke.yaml")
+    S = synthetic_table(_synthetic_forecasts(0.7), cfg, kappa=1.0).set_index("model")
+    good, biased = S.loc["good"], S.loc["biased"]
+    assert good["ratio_to_oracle_lo"] < good["ratio_to_oracle"] < good["ratio_to_oracle_hi"]
+    assert good["ratio_ci_covers_1"]  # a near-oracle model is indistinguishable from it
+    assert biased["ratio_to_oracle_lo"] > 1 and not biased["ratio_ci_covers_1"]  # a 30% bias is detected
+    assert np.isnan(S.loc["oracle", "ratio_to_oracle_lo"])
+    below = pd.Series({"ratio_to_oracle": 0.996, "ratio_to_oracle_lo": 0.98, "ratio_to_oracle_hi": 1.01})
+    assert _oracle_ratio_text(below) == "0.996× oracle loss, 95% CI [0.980, 1.010]: below 1 only by sampling noise"
+    above = pd.Series({"ratio_to_oracle": 1.2, "ratio_to_oracle_lo": 1.1, "ratio_to_oracle_hi": 1.3})
+    assert _oracle_ratio_text(above) == "1.200× oracle loss, 95% CI [1.100, 1.300]"

@@ -1,0 +1,73 @@
+{
+ "generated_by": "tsfm_rc.pipeline.doctor.fix_catalog (make lessons)",
+ "fixes": {
+  "python": {
+   "see": "✗ FAIL  Python  3.12.4 (any version other than 3.11)",
+   "fix": "This project needs Python 3.11. Run `uv python install 3.11` and then `uv sync`."
+  },
+  "uv": {
+   "see": "! WARN  uv  not on PATH",
+   "fix": "Install uv (https://docs.astral.sh/uv/) so `make` commands use the locked environment."
+  },
+  "packages": {
+   "see": "✗ FAIL  package numpy  missing",
+   "fix": "Run `make install` (or `uv sync`) to install the locked environment."
+  },
+  "lock_missing": {
+   "see": "✗ FAIL  uv.lock  missing",
+   "fix": "Restore uv.lock from git: `git checkout uv.lock`."
+  },
+  "lock_drift": {
+   "see": "! WARN  installed = locked  numpy 2.0.0 (lock 1.26.4)",
+   "fix": "Your environment drifted from uv.lock. Run `make install` to restore exact versions."
+  },
+  "fixtures_missing": {
+   "see": "✗ FAIL  fixtures  data/fixtures/MANIFEST.json missing",
+   "fix": "Run `make fixtures` or `git checkout data/fixtures`."
+  },
+  "fixtures_changed": {
+   "see": "✗ FAIL  fixtures  hash mismatch: [...]",
+   "fix": "A fixture file was modified. Restore it with `git checkout data/fixtures` (or regenerate: `make fixtures`)."
+  },
+  "raw_cache_empty": {
+   "see": "! WARN  real-data cache  empty (no Yahoo downloads yet)",
+   "fix": "Only needed for the real study: run `make fetch-data` (needs internet). Fixtures work offline."
+  },
+  "raw_cache_changed": {
+   "see": "✗ FAIL  real-data cache  SPY: …",
+   "fix": "A cached raw file changed or disappeared. Delete its manifest entry and re-run `make fetch-data`."
+  },
+  "tsfm_missing": {
+   "see": "! WARN  TSFM package torch  not installed",
+   "fix": "Needed only for the foundation models: run `make install-tsfm` (downloads PyTorch, ~6 GB)."
+  },
+  "tsfm_broken": {
+   "see": "✗ FAIL  TSFM package torch  import error: …",
+   "fix": "The package is installed but broken. Run `make install-tsfm` again."
+  },
+  "hub_missing": {
+   "see": "! WARN  model weights  huggingface_hub not installed",
+   "fix": "Run `make install-tsfm`."
+  },
+  "weights_failed": {
+   "see": "✗ FAIL  weights chronos_bolt_tiny  could not download … from Hugging Face",
+   "fix": "Check your internet connection/proxy; the model will be reported UNAVAILABLE until this works."
+  },
+  "weights_missing": {
+   "see": "! WARN  weights chronos_bolt_tiny  … not downloaded yet",
+   "fix": "They download automatically on the first `make reproduce`; or run `make doctor ONLINE=1` to fetch now."
+  },
+  "results_none": {
+   "see": "! WARN  results  no stored results",
+   "fix": "Run `make smoke` (about a minute, offline)."
+  },
+  "notebooks_missing": {
+   "see": "! WARN  lessons  notebooks missing: [...]",
+   "fix": "Run `make lessons` to rebuild them from lesson.py."
+  },
+  "jupyter_missing": {
+   "see": "! WARN  lessons  11 lessons; JupyterLab not installed",
+   "fix": "To open the notebooks run `make install-all`, then `uv run jupyter lab`."
+  }
+ }
+}

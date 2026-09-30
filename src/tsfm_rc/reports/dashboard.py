@@ -91,7 +91,8 @@ def run_payload(run_dir: Path) -> dict | None:
         "status": {m: {"status": s.get("status"), "reason": (s.get("reason") or "")[:240], "release": s.get("release_date")}
                    for m, s in status.items()},
         "primary": _records(rd("dm_primary"), ["model", "target", "horizon", "reference", "status", "rel_loss", "rel_loss_lo",
-                                               "rel_loss_hi", "dm_stat", "p_value", "p_holm", "reject_holm", "mean_diff", "T", "flag"]),
+                                               "rel_loss_hi", "dm_stat", "p_value", "p_holm", "reject_holm", "mean_diff", "T", "flag",
+                                               "stride", "method", "sim_size_max"]),
         "dm": _records(rd("dm_all"), dm_cols),
         "dm_asset": _records(rd("dm_per_asset"), ["period", "target", "horizon", "model", "reference", "ticker", "loss",
                                                   "rel_loss", "dm_stat", "p_value", "p_holm", "reject_holm", "mean_diff", "T", "flag"]),
@@ -212,7 +213,7 @@ th { color: var(--ink-2); font-weight: 600; }
   </div>
 </header>
 <main>
-  <section class="card"><h2>Pre-registered primary tests (TSFM vs reference, clean window)</h2>
+  <section class="card"><h2>Pre-registered primary tests (TSFM vs reference, stride-1 origins in the clean window, fixed-b test; A4)</h2>
     <div class="tablewrap"><table id="primary"></table></div></section>
   <section class="card"><h2 id="ts-title">Cumulative loss differential over time</h2>
     <div class="note" id="ts-note"></div><div class="legend" id="ts-legend"></div><div class="chart" id="ts"></div></section>
@@ -290,7 +291,7 @@ function current() {
 
 function renderPrimary(f) {
   const t = $("primary"); t.replaceChildren();
-  const head = h("tr"); ["model", "target", "h", "reference", "status", "rel. loss [95% CI]", "DM", "p", "Holm p", "T", "flags"].forEach((c) => head.appendChild(h("th", c)));
+  const head = h("tr"); ["model", "target", "h", "reference", "status", "rel. loss [95% CI]", "t (KV)", "p", "Holm p", "T", "flags"].forEach((c) => head.appendChild(h("th", c)));
   t.appendChild(head);
   run().primary.filter((p) => p.target === f.target && p.horizon === f.h).forEach((p) => {
     const tr = h("tr");
